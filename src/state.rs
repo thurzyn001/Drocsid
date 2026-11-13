@@ -250,6 +250,22 @@ impl AppState {
         true
     }
 
+    /// Distribui um pacote binário de voz (`DAF\x01`) pelo WebSocket quando o WebRTC P2P falha por CGNAT/NAT.
+    pub async fn relay_binary_audio_frame(&self, sender_id: Uuid, sample_rate: u32, payload: &[u8]) {
+        let packet = crate::protocol::encode_server_binary_audio(sender_id, sample_rate, payload);
+        let msg = ServerMessage::BinaryAudioFrame(packet);
+        let peers = self.peers.read().await;
+        let Some(sender) = peers.get(&sender_id) else {
+            return;
+        };
+        let room = sender.info.room.as_str();
+        for (peer_id, peer) in peers.iter() {
+            if *peer_id != sender_id && peer.info.room == room {
+                let _ = peer.tx.try_send(msg.clone());
+            }
+        }
+    }
+
     /// Para qualquer loop ativo de captura nativa de tela de um participante (`ClearDesktopSource`).
     pub async fn stop_native_capture_for_peer(&self, peer_id: Uuid) {
         let mut peers = self.peers.write().await;
@@ -488,6 +504,7 @@ mod tests {
                     self_mute: false,
                     self_deaf: false,
                     speaking: false,
+                    voice_relay: false,
                     screen_share: None,
                 },
                 tx,

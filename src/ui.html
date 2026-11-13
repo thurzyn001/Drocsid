@@ -317,6 +317,7 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
+      position: relative;
     }
 
     .topbar {
@@ -869,10 +870,10 @@
 
     .unlock-audio-banner {
       position: absolute;
-      top: 12px;
+      top: 58px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 25;
+      z-index: 40;
       background: #f0b232;
       color: #111214;
       border: none;
@@ -1061,7 +1062,8 @@
         <button id="btnGoLive" class="btn btn-golive" onclick="handleGoLiveButton()">🖥️ Compartilhar Tela (Go Live)</button>
         <button id="btnWebcam" class="btn" onclick="toggleWebcam()">📷 Câmera</button>
         <button id="btnSoundboard" class="btn" onclick="toggleSoundboard()">🔊 Efeitos</button>
-        <button id="btnAudioSettings" class="btn" style="grid-column: span 2;" onclick="openAudioSettingsModal()">🎛️ Configurar Áudio / PTT</button>
+        <button id="btnAudioSettings" class="btn" onclick="openAudioSettingsModal()">🎛️ Áudio / PTT</button>
+        <button id="btnVoiceRelay" class="btn" onclick="toggleForceVoiceRelay()" title="Forçar transmissão da voz pelo túnel WebSocket (anti-CGNAT)">🌐 Relay: Auto</button>
         <button id="btnShutdownApp" class="btn" style="grid-column: span 2; display: none; background: #2b2d31; border: 1px solid var(--border); color: var(--text-muted);" onclick="shutdownHostApp()" title="Encerra o servidor local e o túnel em segundo plano">⏻ Encerrar App</button>
       </div>
     </div>
@@ -1085,6 +1087,8 @@
       </div>
     </header>
 
+    <button id="btnUnlockAudio" class="unlock-audio-banner" style="display: none;" onclick="unlockBrowserAudio()">🔇 Som bloqueado pelo navegador — Toque aqui para ativar o áudio</button>
+
     <!-- Palco de Compartilhamento de Tela (Stage) -->
     <section class="stage-container" id="stageContainer">
       <div class="stage-header">
@@ -1107,7 +1111,6 @@
       <div id="webcamStrip" class="webcam-strip"></div>
 
       <div class="stage-viewport" id="stageViewport">
-        <button id="btnUnlockAudio" class="unlock-audio-banner" style="display: none;" onclick="unlockBrowserAudio()">🔇 Som bloqueado pelo navegador — Toque aqui para ativar o áudio</button>
         <video id="stageVideo" autoplay playsinline webkit-playsinline></video>
         <canvas id="stageCanvas"></canvas>
         <div id="stageGrid" class="stage-grid"></div>
@@ -1308,7 +1311,7 @@
     </div>
   </div>
 
-  <div id="remoteAudioContainer" style="display: none;"></div>
+  <div id="remoteAudioContainer" style="position: fixed; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none;"></div>
 
   <script>
     // P0-6: STUN público + TURN opcional configurado pelo usuário (sem credenciais públicas mortas).
@@ -1484,6 +1487,206 @@
     let webrtcWatchdogId = null;
     let relayHiddenVideoEl = null;
 
+    let forceVoiceRelay = localStorage.getItem("drocsid_force_voice_relay") === "true";
+    let prevAutoRelayActive = false;
+    let voiceJoinedAt = 0;
+    const peerJoinedAtMap = new Map();
+    const pendingRenegotiatePeers = new Set();
+    const voiceRelayInboundPeers = new Map();
+    const voicePlaybackPeers = new Map();
+    let voicePlaybackCtx = null;
+    let voiceRelayProcessorNode = null;
+    let voiceRelayZeroGainNode = null;
+    const VOICE_RELAY_SAMPLE_RATE = 16000;
+    const VOICE_RELAY_CHUNK_SAMPLES = 640; // 40ms @ 16kHz
+    let voiceRelayAccumBuf = new Float32Array(VOICE_RELAY_CHUNK_SAMPLES);
+    let voiceRelayAccumLen = 0;
+    let voiceRelayHangoverUntil = 0;
+
+    const MULAW_DECODE_TABLE = (() => {
+      const tbl = new Float32Array(256);
+      for (let i = 0; i < 256; i++) {
+        const mu = (~i) & 0xff;
+        const sign = (mu & 0x80) ? -1 : 1;
+        const exponent = (mu >> 4) & 0x07;
+        const mantissa = mu & 0x0f;
+        let sample = ((mantissa << 3) + 0x84) << exponent;
+        sample -= 0x84;
+        tbl[i] = (sign * sample) / 32768.0;
+      }
+      return tbl;
+    })();
+
+    function linearToMulaw(sampleFloat) {
+      let s = Math.max(-1, Math.min(1, sampleFloat));
+      let pcm = (s * 32767) | 0;
+      const sign = pcm < 0 ? 0x80 : 0x00;
+      if (pcm < 0) pcm = -pcm;
+      if (pcm > 32635) pcm = 32635;
+      pcm += 0x84;
+      let exponent = 7;
+      for (let expMask = 0x4000; (pcm & expMask) === 0 && exponent > 0; exponent--, expMask >>= 1) {}
+      const mantissa = (pcm >> (exponent + 3)) & 0x0f;
+      return (~(sign | (exponent << 4) | mantissa)) & 0xff;
+    }
+
+    function ensureVoicePlaybackContext() {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return null;
+      if (!voicePlaybackCtx || voicePlaybackCtx.state === "closed") {
+        voicePlaybackCtx = new AudioCtx();
+        if (selectedSpeakerId && typeof voicePlaybackCtx.setSinkId === "function") {
+          voicePlaybackCtx.setSinkId(selectedSpeakerId).catch(() => {});
+        }
+      }
+      if (voicePlaybackCtx.state === "suspended") {
+        voicePlaybackCtx.resume().catch(() => {});
+      }
+      return voicePlaybackCtx;
+    }
+
+    function isAnyRemoteRelayRequested() {
+      for (const p of peers.values()) {
+        if (p.peer_id !== myPeerId && p.voice_relay) return true;
+      }
+      return false;
+    }
+
+    function isWebRtcP2pAudioReceiving(peerId) {
+      const pc = peerConnections.get(peerId);
+      if (!pc) return false;
+      const st = pc.iceConnectionState;
+      if (st !== "connected" && st !== "completed") return false;
+      const audios = document.querySelectorAll(`[id^="audio-${peerId}-"]`);
+      for (const a of audios) {
+        if (!a.paused && !a.ended && a.srcObject) return true;
+      }
+      return false;
+    }
+
+    function shouldTransmitVoiceRelay() {
+      if (!voiceEnabled || selfMute || selfDeaf) return false;
+      if (pttEnabled && !pttKeyDown) return false;
+      const remotePeers = Array.from(peers.values()).filter(p => p.peer_id !== myPeerId);
+      if (remotePeers.length === 0) return false;
+      if (forceVoiceRelay || isAnyRemoteRelayRequested()) return true;
+      const now = Date.now();
+      for (const p of remotePeers) {
+        const pc = peerConnections.get(p.peer_id);
+        const st = pc ? pc.iceConnectionState : "new";
+        if (st === "failed" || st === "disconnected") return true;
+        if (st !== "connected" && st !== "completed") {
+          const joinedAt = peerJoinedAtMap.get(p.peer_id) || 0;
+          const refTs = Math.max(voiceJoinedAt, joinedAt);
+          if (refTs > 0 && now - refTs >= 3500) return true;
+        }
+      }
+      return false;
+    }
+
+    function updateVoiceRelayStatusUi() {
+      const btn = document.getElementById("btnVoiceRelay");
+      if (!btn) return;
+      const autoActive = voiceEnabled && shouldTransmitVoiceRelay();
+      btn.classList.toggle("active-green", forceVoiceRelay || autoActive);
+      if (forceVoiceRelay) {
+        btn.textContent = "🌐 Relay: ON";
+      } else if (autoActive) {
+        btn.textContent = "🌐 Relay: Auto (Ativo)";
+      } else {
+        btn.textContent = "🌐 Relay: Auto";
+      }
+    }
+
+    function toggleForceVoiceRelay() {
+      forceVoiceRelay = !forceVoiceRelay;
+      localStorage.setItem("drocsid_force_voice_relay", forceVoiceRelay ? "true" : "false");
+      updateVoiceRelayStatusUi();
+      applyAllAudioVolumes();
+      sendVoiceState();
+      renderPeers();
+    }
+
+    function sendVoiceRelayPacket(mulawBytes) {
+      if (!ws || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 64 * 1024) return;
+      const pkt = new Uint8Array(8 + mulawBytes.length);
+      const view = new DataView(pkt.buffer);
+      pkt[0] = 68; // 'D'
+      pkt[1] = 65; // 'A'
+      pkt[2] = 80; // 'P'
+      pkt[3] = 1;
+      view.setUint32(4, VOICE_RELAY_SAMPLE_RATE, false);
+      pkt.set(mulawBytes, 8);
+      ws.send(pkt.buffer);
+    }
+
+    function handleBinaryAudioFrame(buffer) {
+      if (!buffer || buffer.byteLength <= 24) return;
+      const view = new DataView(buffer);
+      if (
+        view.getUint8(0) !== 68 || // 'D'
+        view.getUint8(1) !== 65 || // 'A'
+        view.getUint8(2) !== 70 || // 'F'
+        view.getUint8(3) !== 1
+      ) {
+        return;
+      }
+      const senderId = formatUuidBytes(new Uint8Array(buffer, 4, 16));
+      if (senderId === myPeerId) return;
+
+      const sampleRate = view.getUint32(20, false);
+      if (sampleRate < 8000 || sampleRate > 48000) return;
+
+      const wasInbound = voiceRelayInboundPeers.has(senderId);
+      voiceRelayInboundPeers.set(senderId, Date.now());
+      if (!wasInbound) renderPeers();
+
+      if (selfDeaf) return;
+      if (!forceVoiceRelay && !peers.get(myPeerId)?.voice_relay && isWebRtcP2pAudioReceiving(senderId)) {
+        return;
+      }
+
+      const ctx = ensureVoicePlaybackContext();
+      if (!ctx) return;
+      if (ctx.state === "suspended") {
+        const unlockBtn = document.getElementById("btnUnlockAudio");
+        if (unlockBtn) unlockBtn.style.display = "block";
+        return;
+      }
+
+      const encoded = new Uint8Array(buffer, 24);
+      if (encoded.length === 0) return;
+
+      let pState = voicePlaybackPeers.get(senderId);
+      if (!pState) {
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = getEffectiveVolume(senderId);
+        gainNode.connect(ctx.destination);
+        pState = { gainNode, nextTime: 0 };
+        voicePlaybackPeers.set(senderId, pState);
+      }
+      pState.gainNode.gain.value = getEffectiveVolume(senderId);
+
+      const audioBuf = ctx.createBuffer(1, encoded.length, sampleRate);
+      const ch = audioBuf.getChannelData(0);
+      for (let i = 0; i < encoded.length; i++) {
+        ch[i] = MULAW_DECODE_TABLE[encoded[i]];
+      }
+
+      const src = ctx.createBufferSource();
+      src.buffer = audioBuf;
+      src.connect(pState.gainNode);
+
+      const now = ctx.currentTime;
+      if (!pState.nextTime || pState.nextTime < now + 0.01) {
+        pState.nextTime = now + 0.055;
+      } else if (pState.nextTime > now + 0.35) {
+        pState.nextTime = now + 0.055;
+      }
+      src.start(pState.nextTime);
+      pState.nextTime += audioBuf.duration;
+    }
+
     function isMobileDevice() {
       return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "") || window.innerWidth <= 900;
     }
@@ -1524,6 +1727,8 @@
       try {
         if (notifAudioCtx && notifAudioCtx.state === "suspended") await notifAudioCtx.resume();
         if (vadAudioCtx && vadAudioCtx.state === "suspended") await vadAudioCtx.resume();
+        if (voicePlaybackCtx && voicePlaybackCtx.state === "suspended") await voicePlaybackCtx.resume();
+        ensureVoicePlaybackContext();
       } catch (_) {}
 
       const videoEl = document.getElementById("stageVideo");
@@ -1533,16 +1738,26 @@
         try { await videoEl.play(); } catch (_) {}
       }
       for (const a of document.querySelectorAll("#remoteAudioContainer audio")) {
-        a.muted = selfDeaf;
+        a.muted = selfDeaf || forceVoiceRelay;
         try { await a.play(); } catch (_) {}
       }
       if (btn) btn.style.display = "none";
     }
 
+    document.addEventListener("pointerdown", () => {
+      const btn = document.getElementById("btnUnlockAudio");
+      if (btn && btn.style.display !== "none") {
+        unlockBrowserAudio();
+      } else if (voicePlaybackCtx && voicePlaybackCtx.state === "suspended") {
+        voicePlaybackCtx.resume().catch(() => {});
+      }
+    }, { passive: true });
+
     function init() {
       const savedName = localStorage.getItem("drocsid_username") || ("Amigo-" + Math.floor(100 + Math.random() * 899));
       document.getElementById("usernameInput").value = savedName;
       renderRooms();
+      updateVoiceRelayStatusUi();
       try { initStageResizer(); } catch (err) { console.error("Erro em initStageResizer:", err); }
       try { initChatPasteAndShortcuts(); } catch (err) { console.error("Erro em initChatPasteAndShortcuts:", err); }
       if (!window.isSecureContext) {
@@ -1764,7 +1979,15 @@
 
       ws.onmessage = async (event) => {
         if (event.data instanceof ArrayBuffer) {
-          handleBinaryVideoFrame(event.data);
+          const buf = event.data;
+          if (buf.byteLength >= 4) {
+            const view = new DataView(buf);
+            if (view.getUint8(0) === 68 && view.getUint8(1) === 65 && view.getUint8(2) === 70 && view.getUint8(3) === 1) {
+              handleBinaryAudioFrame(buf);
+              return;
+            }
+          }
+          handleBinaryVideoFrame(buf);
           return;
         }
         const msg = JSON.parse(event.data);
@@ -1782,6 +2005,13 @@
           closePeerConnection(peerId);
         }
         peers.clear();
+        peerJoinedAtMap.clear();
+        pendingRenegotiatePeers.clear();
+        voiceRelayInboundPeers.clear();
+        for (const st of voicePlaybackPeers.values()) {
+          try { st.gainNode.disconnect(); } catch (_) {}
+        }
+        voicePlaybackPeers.clear();
         remoteVideoStreams.clear();
         remoteWebcamStreams.clear();
         pendingCandidates.clear();
@@ -1833,8 +2063,11 @@
           renderRooms();
 
           peers.clear();
+          peerJoinedAtMap.clear();
+          const nowTs = Date.now();
           for (const p of msg.peers) {
             peers.set(p.peer_id, p);
+            peerJoinedAtMap.set(p.peer_id, nowTs);
           }
           syncMyUsernameInput();
           renderPeers();
@@ -1848,6 +2081,7 @@
           }
 
           await syncWebRtcPeers();
+          updateVoiceRelayStatusUi();
           break;
         }
 
@@ -1860,8 +2094,10 @@
 
         case "peer_joined":
           peers.set(msg.peer.peer_id, msg.peer);
+          peerJoinedAtMap.set(msg.peer.peer_id, Date.now());
           renderPeers();
           renderStreamTabs();
+          updateVoiceRelayStatusUi();
           if (msg.peer.peer_id !== myPeerId) {
             if (msg.peer.in_voice) playNotificationBeep(520, 60);
             await createAndSendOffer(msg.peer.peer_id);
@@ -1892,6 +2128,7 @@
           }
           renderPeers();
           renderStreamTabs();
+          updateVoiceRelayStatusUi();
           if (msg.peer.screen_share && !watchedStreamerId) {
             selectWatchedStreamer(msg.peer.peer_id);
           }
@@ -1904,6 +2141,7 @@
 
         case "peer_left":
           peers.delete(msg.peer_id);
+          peerJoinedAtMap.delete(msg.peer_id);
           closePeerConnection(msg.peer_id);
           if (watchedStreamerId === msg.peer_id) {
             watchedStreamerId = null;
@@ -1912,6 +2150,7 @@
           renderStreamTabs();
           renderWebcamStrip();
           updateStageView();
+          updateVoiceRelayStatusUi();
           break;
 
         case "chat_broadcast":
@@ -2079,6 +2318,20 @@
           badgesHtml += `<span class="status-icon" title="Áudio desativado">🙉</span>`;
         }
         if (peer.peer_id !== myPeerId) {
+          if (peer.in_voice || voiceEnabled) {
+            const pc = peerConnections.get(peer.peer_id);
+            const ice = pc ? pc.iceConnectionState : "new";
+            const inboundRelay = voiceRelayInboundPeers.has(peer.peer_id);
+            if (!forceVoiceRelay && isWebRtcP2pAudioReceiving(peer.peer_id) && !inboundRelay) {
+              badgesHtml += `<span class="status-icon" style="color:var(--green);font-size:10px;font-weight:700;" title="Voz P2P WebRTC conectada diretamente">P2P</span>`;
+            } else if (forceVoiceRelay || peer.voice_relay || inboundRelay || (voiceEnabled && shouldTransmitVoiceRelay())) {
+              badgesHtml += `<span class="status-icon" style="color:#7289da;font-size:10px;font-weight:700;" title="Voz via Relay no túnel WebSocket (anti-CGNAT)">Relay</span>`;
+            } else if (ice === "failed" || ice === "disconnected") {
+              badgesHtml += `<span class="status-icon" style="color:var(--yellow);font-size:10px;font-weight:700;" title="NAT/CGNAT bloqueou UDP direto — alternando para Relay">NAT</span>`;
+            } else {
+              badgesHtml += `<span class="status-icon" style="color:var(--text-muted);font-size:10px;" title="Conectando rota WebRTC P2P (${escapeHtml(ice)})">...</span>`;
+            }
+          }
           const curPeerVol = peerVolumes.has(peer.peer_id) ? peerVolumes.get(peer.peer_id) : 100;
           badgesHtml += `<input type="range" min="0" max="100" value="${curPeerVol}" style="width: 48px; accent-color: var(--brand); cursor: pointer;" title="Volume de ${escapeHtml(peer.username)}" oninput="setPeerVolume('${peer.peer_id}', this.value)" />`;
           if (iAmHost) {
@@ -2388,6 +2641,9 @@
       for (const a of document.querySelectorAll("#remoteAudioContainer audio")) {
         await applyOutputSinkToElement(a);
       }
+      if (voicePlaybackCtx && selectedSpeakerId && typeof voicePlaybackCtx.setSinkId === "function") {
+        voicePlaybackCtx.setSinkId(selectedSpeakerId).catch(() => {});
+      }
     }
 
     function isEditableElementFocused() {
@@ -2447,11 +2703,15 @@
         try {
           localAudioStream = await captureMicStream();
           voiceEnabled = true;
+          voiceJoinedAt = Date.now();
           pttKeyDown = false;
+          ensureVoicePlaybackContext();
           syncLocalAudioEnabled();
           updateVoiceButtonLabel();
           setupVoiceActivityDetection(localAudioStream);
+          updateVoiceRelayStatusUi();
           sendVoiceState();
+          renderPeers();
           await renegotiateAllPeers();
         } catch (err) {
           alert("Não foi possível acessar o microfone: " + err.message);
@@ -2463,10 +2723,13 @@
           localAudioStream = null;
         }
         voiceEnabled = false;
+        voiceJoinedAt = 0;
         pttKeyDown = false;
         isSpeaking = false;
         updateVoiceButtonLabel();
+        updateVoiceRelayStatusUi();
         sendVoiceState();
+        renderPeers();
         await renegotiateAllPeers();
       }
     }
@@ -2476,6 +2739,18 @@
         clearInterval(vadIntervalId);
         vadIntervalId = null;
       }
+      if (voiceRelayProcessorNode) {
+        try {
+          voiceRelayProcessorNode.onaudioprocess = null;
+          voiceRelayProcessorNode.disconnect();
+        } catch (_) {}
+        voiceRelayProcessorNode = null;
+      }
+      if (voiceRelayZeroGainNode) {
+        try { voiceRelayZeroGainNode.disconnect(); } catch (_) {}
+        voiceRelayZeroGainNode = null;
+      }
+      voiceRelayAccumLen = 0;
       if (vadAudioCtx) {
         vadAudioCtx.close().catch(() => {});
         vadAudioCtx = null;
@@ -2486,11 +2761,69 @@
       stopVoiceActivityDetection();
       try {
         vadAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (vadAudioCtx.state === "suspended") {
+          vadAudioCtx.resume().catch(() => {});
+        }
         const source = vadAudioCtx.createMediaStreamSource(stream);
         const analyser = vadAudioCtx.createAnalyser();
         analyser.fftSize = 512;
         source.connect(analyser);
         const data = new Uint8Array(analyser.frequencyBinCount);
+
+        if (typeof vadAudioCtx.createScriptProcessor === "function") {
+          const processor = vadAudioCtx.createScriptProcessor(2048, 1, 1);
+          const zeroGain = vadAudioCtx.createGain();
+          zeroGain.gain.value = 0;
+          source.connect(processor);
+          processor.connect(zeroGain);
+          zeroGain.connect(vadAudioCtx.destination);
+          voiceRelayProcessorNode = processor;
+          voiceRelayZeroGainNode = zeroGain;
+          voiceRelayAccumLen = 0;
+
+          let resamplePos = 0;
+          processor.onaudioprocess = (ev) => {
+            if (!shouldTransmitVoiceRelay()) {
+              voiceRelayAccumLen = 0;
+              resamplePos = 0;
+              return;
+            }
+            const input = ev.inputBuffer.getChannelData(0);
+            const inRate = vadAudioCtx ? vadAudioCtx.sampleRate : 48000;
+            const step = inRate / VOICE_RELAY_SAMPLE_RATE;
+
+            while (resamplePos < input.length) {
+              const i0 = Math.floor(resamplePos);
+              const i1 = Math.min(input.length, Math.max(i0 + 1, Math.floor(resamplePos + step)));
+              let acc = 0;
+              for (let j = i0; j < i1; j++) acc += input[j];
+              voiceRelayAccumBuf[voiceRelayAccumLen++] = acc / (i1 - i0);
+              resamplePos += step;
+
+              if (voiceRelayAccumLen >= VOICE_RELAY_CHUNK_SAMPLES) {
+                let sqSum = 0;
+                for (let k = 0; k < VOICE_RELAY_CHUNK_SAMPLES; k++) {
+                  const v = voiceRelayAccumBuf[k];
+                  sqSum += v * v;
+                }
+                const rms = Math.sqrt(sqSum / VOICE_RELAY_CHUNK_SAMPLES);
+                const now = Date.now();
+                if (rms > 0.0035 || isSpeaking) {
+                  voiceRelayHangoverUntil = now + 600;
+                }
+                if (now <= voiceRelayHangoverUntil) {
+                  const mulaw = new Uint8Array(VOICE_RELAY_CHUNK_SAMPLES);
+                  for (let k = 0; k < VOICE_RELAY_CHUNK_SAMPLES; k++) {
+                    mulaw[k] = linearToMulaw(voiceRelayAccumBuf[k]);
+                  }
+                  sendVoiceRelayPacket(mulaw);
+                }
+                voiceRelayAccumLen = 0;
+              }
+            }
+            resamplePos -= input.length;
+          };
+        }
 
         vadIntervalId = setInterval(() => {
           if (!voiceEnabled || selfMute || selfDeaf || (pttEnabled && !pttKeyDown)) {
@@ -2539,9 +2872,7 @@
       selfDeaf = !selfDeaf;
       // P2-1: igual ao Discord, Deafen também silencia o microfone local
       syncLocalAudioEnabled();
-      document.querySelectorAll("#remoteAudioContainer audio").forEach(a => {
-        a.muted = selfDeaf;
-      });
+      applyAllAudioVolumes();
       const stageVideo = document.getElementById("stageVideo");
       stageVideo.muted = selfDeaf || (watchedStreamerId === myPeerId);
 
@@ -2557,7 +2888,8 @@
         in_voice: voiceEnabled,
         self_mute: selfMute,
         self_deaf: selfDeaf,
-        speaking: isSpeaking
+        speaking: isSpeaking,
+        voice_relay: forceVoiceRelay
       });
     }
 
@@ -3040,8 +3372,14 @@
       videoEl.volume = getEffectiveVolume(watchedStreamerId);
       document.querySelectorAll("#remoteAudioContainer audio").forEach(a => {
         const pid = a.dataset.peerId || "";
+        a.muted = selfDeaf || forceVoiceRelay;
         a.volume = getEffectiveVolume(pid);
       });
+      for (const [pid, st] of voicePlaybackPeers.entries()) {
+        if (st && st.gainNode) {
+          st.gainNode.gain.value = selfDeaf ? 0 : getEffectiveVolume(pid);
+        }
+      }
     }
 
     function setStageVolume(val) {
@@ -3397,17 +3735,34 @@
         lastFpsTick = now;
       }
 
+      const tsNow = Date.now();
+      let relayExpired = false;
+      for (const [pid, lastAt] of voiceRelayInboundPeers.entries()) {
+        if (tsNow - lastAt > 1600) {
+          voiceRelayInboundPeers.delete(pid);
+          relayExpired = true;
+        }
+      }
+      updateVoiceRelayStatusUi();
+      const autoRelayNow = voiceEnabled && shouldTransmitVoiceRelay();
+      const relayTransitioned = autoRelayNow !== prevAutoRelayActive;
+      prevAutoRelayActive = autoRelayNow;
+      if (relayExpired || relayTransitioned) renderPeers();
+
       const streamer = watchedStreamerId ? peers.get(watchedStreamerId) : null;
       const hud = document.getElementById("hudStatus");
       const pingText = typeof pingMs === "number" ? ` • Ping: ${pingMs} ms` : "";
+      const voiceTag = voiceEnabled
+        ? (shouldTransmitVoiceRelay() ? " • Voz: Relay WSS" : " • Voz: P2P")
+        : "";
       if (streamer && streamer.screen_share) {
         const s = streamer.screen_share;
         const engine = (s.mode === "native_host" || s.mode === "universal_relay")
           ? `${s.mode === "native_host" ? "Rust GDI" : "Relay Internet"} (${measuredFps} FPS Acked)`
           : `WebRTC P2P+TURN (${s.fps} FPS Alvo)`;
-        hud.textContent = `Assistindo ${streamer.username} • ${s.width}x${s.height} • ${engine}${pingText}`;
+        hud.textContent = `Assistindo ${streamer.username} • ${s.width}x${s.height} • ${engine}${voiceTag}${pingText}`;
       } else {
-        hud.textContent = `Sala #${currentRoom} • ${peers.size} online${pingText}`;
+        hud.textContent = `Sala #${currentRoom} • ${peers.size} online${voiceTag}${pingText}`;
       }
     }
 
@@ -3483,6 +3838,8 @@
             try { pc.restartIce(); } catch (_) {}
           }
         }
+        updateVoiceRelayStatusUi();
+        renderPeers();
       };
 
       pc.ontrack = (e) => {
@@ -3535,15 +3892,18 @@
             audioEl.id = `audio-${remotePeerId}-${stream.id}`;
             audioEl.dataset.peerId = remotePeerId;
             audioEl.autoplay = true;
-            audioEl.muted = selfDeaf;
+            audioEl.playsInline = true;
+            audioEl.setAttribute("playsinline", "");
+            audioEl.muted = selfDeaf || forceVoiceRelay;
             audioEl.volume = getEffectiveVolume(remotePeerId);
             applyOutputSinkToElement(audioEl);
             document.getElementById("remoteAudioContainer").appendChild(audioEl);
           }
           audioEl.srcObject = stream;
-          audioEl.play().catch(() => {
+          audioEl.play().then(() => renderPeers()).catch(() => {
             const unlockBtn = document.getElementById("btnUnlockAudio");
             if (unlockBtn) unlockBtn.style.display = "block";
+            renderPeers();
           });
         }
       };
@@ -3617,6 +3977,10 @@
 
     async function createAndSendOffer(remotePeerId) {
       const pc = getOrCreatePeerConnection(remotePeerId);
+      if (makingOfferMap.get(remotePeerId) || pc.signalingState !== "stable") {
+        pendingRenegotiatePeers.add(remotePeerId);
+        return;
+      }
       attachLocalTracksToPc(pc);
       makingOfferMap.set(remotePeerId, true);
       try {
@@ -3637,7 +4001,6 @@
     // P0-7: Perfect Negotiation (evita glare quando os dois mandam offer ao mesmo tempo)
     async function handleRtcOffer(fromId, sdp) {
       const pc = getOrCreatePeerConnection(fromId);
-      attachLocalTracksToPc(pc);
       const polite = String(myPeerId) < String(fromId);
       const offerCollision = !!makingOfferMap.get(fromId) || pc.signalingState !== "stable";
 
@@ -3648,9 +4011,13 @@
       try {
         if (offerCollision && polite) {
           await pc.setLocalDescription({ type: "rollback" });
+          if (localAudioStream || localDisplayStream || localWebcamStream) {
+            pendingRenegotiatePeers.add(fromId);
+          }
         }
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
         await drainPendingCandidates(fromId, pc);
+        attachLocalTracksToPc(pc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         sendWs({
@@ -3658,6 +4025,10 @@
           target_id: fromId,
           sdp: pc.localDescription
         });
+        if (pendingRenegotiatePeers.has(fromId) && pc.signalingState === "stable") {
+          pendingRenegotiatePeers.delete(fromId);
+          setTimeout(() => createAndSendOffer(fromId), 25);
+        }
       } catch (err) {
         console.warn("Erro ao processar oferta WebRTC:", err);
       }
@@ -3669,6 +4040,10 @@
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
         await drainPendingCandidates(fromId, pc);
+        if (pendingRenegotiatePeers.has(fromId) && pc.signalingState === "stable") {
+          pendingRenegotiatePeers.delete(fromId);
+          setTimeout(() => createAndSendOffer(fromId), 25);
+        }
       } catch (err) {
         console.warn("Erro ao aplicar resposta WebRTC:", err);
       }
@@ -3695,6 +4070,13 @@
       }
       pendingCandidates.delete(peerId);
       makingOfferMap.delete(peerId);
+      pendingRenegotiatePeers.delete(peerId);
+      voiceRelayInboundPeers.delete(peerId);
+      const vp = voicePlaybackPeers.get(peerId);
+      if (vp) {
+        try { vp.gainNode.disconnect(); } catch (_) {}
+        voicePlaybackPeers.delete(peerId);
+      }
       remoteVideoStreams.delete(peerId);
       remoteWebcamStreams.delete(peerId);
       document.querySelectorAll(`[id^="audio-${peerId}-"]`).forEach(el => el.remove());

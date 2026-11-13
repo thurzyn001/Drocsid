@@ -46,6 +46,9 @@ pub struct PeerInfo {
     pub self_deaf: bool,
     /// Equivale a `setOnSpeakingCallback` no `discord_voice/index.js`
     pub speaking: bool,
+    /// Participante solicitou/ativou Relay de Voz pelo WebSocket (anti-CGNAT)
+    #[serde(default)]
+    pub voice_relay: bool,
     /// Estado ativo de compartilhamento de tela ("Go Live")
     pub screen_share: Option<ScreenShareInfo>,
 }
@@ -103,6 +106,8 @@ pub enum ClientMessage {
         self_mute: bool,
         self_deaf: bool,
         speaking: bool,
+        #[serde(default)]
+        voice_relay: bool,
     },
     /// Inicia compartilhamento de tela ("Go Live" — `SetDesktopSource` / `SetVideoBroadcast`)
     StartScreenShare {
@@ -254,6 +259,9 @@ pub enum ServerMessage {
     /// Quadro binário de vídeo (não serializado em JSON; enviado via `Message::Binary`)
     #[serde(skip)]
     BinaryVideoFrame(Vec<u8>),
+    /// Pacote binário de áudio/voz no modo Relay (não serializado em JSON; enviado via `Message::Binary`)
+    #[serde(skip)]
+    BinaryAudioFrame(Vec<u8>),
     /// Notificação de erro
     Error {
         message: String,
@@ -262,6 +270,9 @@ pub enum ServerMessage {
 
 pub const CLIENT_BINARY_FRAME_MAGIC: &[u8; 4] = b"DVP\x01";
 pub const SERVER_BINARY_FRAME_MAGIC: &[u8; 4] = b"DVF\x01";
+pub const CLIENT_BINARY_AUDIO_MAGIC: &[u8; 4] = b"DAP\x01";
+pub const SERVER_BINARY_AUDIO_MAGIC: &[u8; 4] = b"DAF\x01";
+pub const MAX_BINARY_AUDIO_BYTES: usize = 8192;
 
 /// Empacota um quadro JPEG enviado pelo cliente (`DVP\x01` + `frame_seq:u64` + `w:u16` + `h:u16` + JPEG).
 pub fn encode_client_binary_frame(
@@ -320,6 +331,51 @@ pub fn parse_server_binary_frame(buf: &[u8]) -> Option<(Uuid, u64, u16, u16, &[u
     Some((streamer_id, frame_seq, width, height, &buf[32..]))
 }
 
+/// Empacota áudio μ-law mono enviado pelo cliente (`DAP\x01` + `sample_rate:u32` + payload).
+pub fn encode_client_binary_audio(sample_rate: u32, payload: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(8 + payload.len());
+    out.extend_from_slice(CLIENT_BINARY_AUDIO_MAGIC);
+    out.extend_from_slice(&sample_rate.to_be_bytes());
+    out.extend_from_slice(payload);
+    out
+}
+
+/// Faz parse do pacote de áudio binário enviado pelo cliente, validando faixa e tamanho máximo.
+pub fn parse_client_binary_audio(buf: &[u8]) -> Option<(u32, &[u8])> {
+    if buf.len() <= 8 || &buf[..4] != CLIENT_BINARY_AUDIO_MAGIC {
+        return None;
+    }
+    let payload_len = buf.len() - 8;
+    if payload_len > MAX_BINARY_AUDIO_BYTES {
+        return None;
+    }
+    let sample_rate = u32::from_be_bytes(buf[4..8].try_into().ok()?);
+    if !(8000..=48000).contains(&sample_rate) {
+        return None;
+    }
+    Some((sample_rate, &buf[8..]))
+}
+
+/// Empacota áudio μ-law mono retransmitido pelo servidor (`DAF\x01` + `sender_id:16` + `sample_rate:u32` + payload).
+pub fn encode_server_binary_audio(sender_id: Uuid, sample_rate: u32, payload: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(24 + payload.len());
+    out.extend_from_slice(SERVER_BINARY_AUDIO_MAGIC);
+    out.extend_from_slice(sender_id.as_bytes());
+    out.extend_from_slice(&sample_rate.to_be_bytes());
+    out.extend_from_slice(payload);
+    out
+}
+
+/// Faz parse do pacote de áudio binário emitido pelo servidor.
+pub fn parse_server_binary_audio(buf: &[u8]) -> Option<(Uuid, u32, &[u8])> {
+    if buf.len() <= 24 || &buf[..4] != SERVER_BINARY_AUDIO_MAGIC {
+        return None;
+    }
+    let sender_id = Uuid::from_slice(&buf[4..20]).ok()?;
+    let sample_rate = u32::from_be_bytes(buf[20..24].try_into().ok()?);
+    Some((sender_id, sample_rate, &buf[24..]))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -366,5 +422,21 @@ mod tests {
             (parsed_id, s_seq, s_w, s_h, s_payload),
             (sid, 99, 1920, 1080, &b"jpegdata"[..])
         );
+    }
+
+    #[test]
+    fn binary_audio_packet_roundtrip() {
+        let client_pkt = encode_client_binary_audio(16000, &[0x7f, 0x80, 0xff]);
+        let (sr, payload) = parse_client_binary_audio(&client_pkt).unwrap();
+        assert_eq!(sr, 16000);
+        assert_eq!(payload, &[0x7f, 0x80, 0xff]);
+
+        let oversized = encode_client_binary_audio(16000, &vec![0x7f; MAX_BINARY_AUDIO_BYTES + 1]);
+        assert!(parse_client_binary_audio(&oversized).is_none());
+
+        let uid = Uuid::new_v4();
+        let server_pkt = encode_server_binary_audio(uid, 16000, &[1, 2, 3, 4]);
+        let (p_uid, p_sr, p_data) = parse_server_binary_audio(&server_pkt).unwrap();
+        assert_eq!((p_uid, p_sr, p_data), (uid, 16000, &[1, 2, 3, 4][..]));
     }
 }

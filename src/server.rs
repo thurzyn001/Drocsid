@@ -155,7 +155,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
     let send_task = tokio::spawn(async move {
         while let Some(server_msg) = rx.recv().await {
             match server_msg {
-                ServerMessage::BinaryVideoFrame(bytes) => {
+                ServerMessage::BinaryVideoFrame(bytes) | ServerMessage::BinaryAudioFrame(bytes) => {
                     if ws_sender.send(Message::Binary(bytes)).await.is_err() {
                         break;
                     }
@@ -180,6 +180,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
         self_mute: false,
         self_deaf: false,
         speaking: false,
+        voice_relay: false,
         screen_share: None,
     };
 
@@ -217,6 +218,12 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
                         .relay_binary_video_frame_with_backpressure(
                             peer_id, frame_seq, width, height, jpeg_bytes,
                         )
+                        .await;
+                } else if let Some((sample_rate, audio_bytes)) =
+                    crate::protocol::parse_client_binary_audio(&bytes)
+                {
+                    state
+                        .relay_binary_audio_frame(peer_id, sample_rate, audio_bytes)
                         .await;
                 }
                 continue;
@@ -413,6 +420,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
                 self_mute,
                 self_deaf,
                 speaking,
+                voice_relay,
             } => {
                 let updated = {
                     let mut peers = state.peers.write().await;
@@ -421,6 +429,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
                         peer.info.self_mute = self_mute;
                         peer.info.self_deaf = self_deaf;
                         peer.info.speaking = in_voice && speaking && !self_mute && !self_deaf;
+                        peer.info.voice_relay = voice_relay;
                         Some(peer.info.clone())
                     } else {
                         None
