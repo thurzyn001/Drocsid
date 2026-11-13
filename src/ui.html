@@ -1,0 +1,2468 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drocsid — Chat, Voz & Go Live (Internet & P2P)</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%235865F2'/><text x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Segoe UI,sans-serif' font-weight='bold'>D</text></svg>" />
+  <style>
+    :root {
+      --bg-tertiary: #1e1f22;
+      --bg-secondary: #2b2d31;
+      --bg-primary: #313338;
+      --bg-stage: #111214;
+      --text-normal: #dbdee1;
+      --text-muted: #949ba4;
+      --text-header: #f2f3f5;
+      --brand: #5865f2;
+      --brand-hover: #4752c4;
+      --green: #23a55a;
+      --red: #da373c;
+      --red-hover: #a1282c;
+      --border: #3f4147;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-normal);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 285px;
+      background: var(--bg-secondary);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .server-header {
+      height: 52px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--bg-tertiary);
+      font-weight: 700;
+      color: var(--text-header);
+      font-size: 16px;
+    }
+
+    .server-badge {
+      font-size: 11px;
+      background: var(--brand);
+      color: #fff;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    /* Cartão de Conexão Remota (Internet / Convite) na Sidebar */
+    .network-card {
+      margin: 10px 8px 2px;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(88, 101, 242, 0.12);
+      border: 1px solid rgba(88, 101, 242, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .network-card-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #a5b4fc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .invite-box {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      padding: 6px 8px;
+      border-radius: 5px;
+      font-family: Consolas, monospace;
+      font-size: 11px;
+      color: #86efac;
+      word-break: break-all;
+      display: none;
+    }
+
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 8px 8px 6px;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .room-btn {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 8px 10px;
+      border-radius: 6px;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .room-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-normal);
+    }
+
+    .room-btn.active {
+      background: rgba(88, 101, 242, 0.22);
+      color: var(--text-header);
+      font-weight: 600;
+    }
+
+    .peer-list {
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .peer-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.16);
+      font-size: 13px;
+    }
+
+    .peer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--brand);
+      color: #fff;
+      font-weight: 700;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 2px solid transparent;
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+
+    .avatar.speaking {
+      border-color: var(--green);
+      box-shadow: 0 0 0 2px rgba(35, 165, 90, 0.35);
+    }
+
+    .peer-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-header);
+      font-weight: 500;
+    }
+
+    .peer-badges {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .live-pill {
+      background: var(--red);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      border: none;
+      animation: pulse-live 2s infinite;
+    }
+
+    @keyframes pulse-live {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.78; }
+    }
+
+    .status-icon {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .user-panel {
+      background: var(--bg-tertiary);
+      padding: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .user-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .username-input {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      color: var(--text-header);
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      width: 100%;
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 5px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      background: #383a40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: background 0.15s;
+    }
+
+    .btn:hover {
+      background: #4e5058;
+    }
+
+    .btn.active-green {
+      background: var(--green);
+    }
+
+    .btn.active-red {
+      background: var(--red);
+    }
+
+    .btn-golive {
+      grid-column: span 2;
+      background: var(--brand);
+      padding: 9px 12px;
+      font-size: 13px;
+    }
+
+    .btn-golive:hover {
+      background: var(--brand-hover);
+    }
+
+    .btn-golive.streaming {
+      background: var(--red);
+    }
+
+    .btn-golive.streaming:hover {
+      background: var(--red-hover);
+    }
+
+    .main-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .topbar {
+      height: 52px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--bg-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-primary);
+      flex-shrink: 0;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .room-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-header);
+    }
+
+    .engine-pill {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--bg-secondary);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .stage-container {
+      background: var(--bg-stage);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 52%;
+      min-height: 250px;
+      position: relative;
+    }
+
+    .stage-header {
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.45);
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .stage-tabs {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+    }
+
+    .stream-tab {
+      background: var(--bg-secondary);
+      color: var(--text-normal);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stream-tab.active {
+      border-color: var(--brand);
+      background: rgba(88, 101, 242, 0.25);
+      color: #fff;
+    }
+
+    .stage-viewport {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      background: #090a0b;
+    }
+
+    .stage-viewport video,
+    .stage-viewport canvas {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none;
+    }
+
+    .stage-empty {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 20px;
+      max-width: 510px;
+    }
+
+    .stage-empty h3 {
+      color: var(--text-header);
+      margin-bottom: 6px;
+      font-size: 16px;
+    }
+
+    .stage-empty p {
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 12px;
+    }
+
+    .telemetry-hud {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: Consolas, monospace;
+      font-size: 11px;
+      color: #a5b4fc;
+    }
+
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: var(--bg-primary);
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .msg {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .msg-header {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .msg-author {
+      font-weight: 600;
+      color: var(--text-header);
+      font-size: 14px;
+    }
+
+    .msg-time {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .msg-text {
+      font-size: 14px;
+      line-height: 1.4;
+      color: var(--text-normal);
+      word-break: break-word;
+    }
+
+    .msg.system {
+      background: rgba(88, 101, 242, 0.1);
+      border-left: 3px solid var(--brand);
+      padding: 6px 10px;
+      border-radius: 4px;
+    }
+
+    .chat-input-bar {
+      padding: 10px 18px 14px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: #383a40;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 14px;
+      color: var(--text-header);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: 680px;
+      max-width: 94vw;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-header h2 {
+      font-size: 17px;
+      color: var(--text-header);
+    }
+
+    .modal-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .mode-selector {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .mode-card {
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 11px;
+      cursor: pointer;
+      background: var(--bg-primary);
+      transition: border-color 0.15s;
+    }
+
+    .mode-card.selected {
+      border-color: var(--brand);
+      background: rgba(88, 101, 242, 0.14);
+    }
+
+    .mode-card h4 {
+      color: var(--text-header);
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .mode-card p {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 10px;
+    }
+
+    .preview-card {
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg-tertiary);
+      cursor: pointer;
+    }
+
+    .preview-card.selected {
+      border-color: var(--green);
+    }
+
+    .preview-card img {
+      width: 100%;
+      height: 115px;
+      object-fit: cover;
+      background: #000;
+      display: block;
+    }
+
+    .preview-card .preview-title {
+      padding: 6px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-header);
+    }
+
+    .settings-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field-group label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .field-group select,
+    .field-group input {
+      background: var(--bg-tertiary);
+      color: var(--text-header);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 7px 8px;
+      font-size: 13px;
+    }
+
+    .modal-footer {
+      padding: 12px 20px;
+      background: var(--bg-tertiary);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Barra Lateral -->
+  <aside class="sidebar">
+    <div class="server-header">
+      <span>Drocsid</span>
+      <span class="server-badge" id="connectionBadge">LOCAL</span>
+    </div>
+
+    <!-- Cartão de Conexão na Internet (Jogar fora da mesma rede sem VPN) -->
+    <div class="network-card">
+      <div class="network-card-title">
+        <span>🌐 Conexão na Internet</span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span id="tunnelProviderLabel" style="font-size: 10px; color: var(--text-muted);">Pronto</span>
+          <button class="btn" style="padding:1px 5px;font-size:10px;" onclick="openTurnModal()" title="Configurar servidor TURN opcional para redes com bloqueio P2P">⚙️</button>
+        </span>
+      </div>
+      <div id="inviteCodeBox" class="invite-box"></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+        <button id="btnHostTunnel" class="btn" style="background: var(--brand);" onclick="startInternetTunnel()" title="Cria um link/código público gratuito para seus amigos entrarem de qualquer rede">
+          📡 Gerar Convite
+        </button>
+        <button class="btn" onclick="openJoinRemoteModal()" title="Entrar na sala de um amigo usando o código ou link dele">
+          🔗 Usar Código
+        </button>
+      </div>
+      <button id="btnCopyInvite" class="btn active-green" style="display: none; width: 100%;" onclick="copyInviteToClipboard()">
+        📋 Copiar Código/Link p/ Amigos
+      </button>
+    </div>
+
+    <div class="sidebar-content">
+      <div class="section-title">
+        <span>Salas (Voz + Tela + Chat)</span>
+        <button class="btn" style="padding: 2px 6px; font-size: 11px;" onclick="promptNewRoom()" title="Criar ou entrar em outra sala">+</button>
+      </div>
+      <div id="roomList"></div>
+
+      <div class="section-title" style="margin-top: 14px;">
+        <span>Na Sala (<span id="peerCount">0</span>)</span>
+      </div>
+      <div id="peerList" class="peer-list"></div>
+    </div>
+
+    <!-- Controles de Usuário, Voz e Compartilhamento de Tela -->
+    <div class="user-panel">
+      <div class="user-row">
+        <input id="usernameInput" class="username-input" type="text" placeholder="Seu apelido..." onchange="updateProfile()" />
+      </div>
+      <div class="control-grid">
+        <button id="btnVoice" class="btn" onclick="toggleVoiceConnection()">🎙️ Entrar na Voz</button>
+        <button id="btnMute" class="btn" onclick="toggleMute()">🎤 Mutar</button>
+        <button id="btnDeaf" class="btn" style="grid-column: span 2;" onclick="toggleDeaf()">🎧 Desativar Áudio (Deafen)</button>
+        <button id="btnGoLive" class="btn btn-golive" onclick="handleGoLiveButton()">🖥️ Compartilhar Tela (Go Live)</button>
+        <button id="btnAudioSettings" class="btn" style="grid-column: span 2;" onclick="openAudioSettingsModal()">🎛️ Configurar Áudio / PTT</button>
+        <button id="btnShutdownApp" class="btn" style="grid-column: span 2; display: none; background: #2b2d31; border: 1px solid var(--border); color: var(--text-muted);" onclick="shutdownHostApp()" title="Encerra o servidor local e o túnel em segundo plano">⏻ Encerrar App</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Área Principal -->
+  <main class="main-area">
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="room-title" id="currentRoomLabel">#geral</span>
+        <span class="engine-pill" id="activeServerPill">Servidor Local</span>
+      </div>
+      <div class="telemetry-hud" id="telemetryHud">
+        <span id="hudStatus">Pronto</span>
+      </div>
+    </header>
+
+    <!-- Palco de Compartilhamento de Tela (Stage) -->
+    <section class="stage-container">
+      <div class="stage-header">
+        <div class="stage-tabs" id="streamTabs">
+          <span style="color: var(--text-muted);">Nenhuma transmissão ativa no momento</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted);" title="Volume do Palco e Voz">
+            🔊
+            <input id="stageVolumeSlider" type="range" min="0" max="100" value="100" style="width: 72px; accent-color: var(--brand); cursor: pointer;" oninput="setStageVolume(this.value)" />
+          </label>
+          <button class="btn" style="padding: 4px 8px;" onclick="togglePiP()">🗔 PiP</button>
+          <button class="btn" style="padding: 4px 8px;" onclick="toggleStageFullscreen()">⛶ Tela Cheia</button>
+        </div>
+      </div>
+
+      <div class="stage-viewport" id="stageViewport">
+        <video id="stageVideo" autoplay playsinline></video>
+        <canvas id="stageCanvas"></canvas>
+        <div class="stage-empty" id="stageEmpty">
+          <h3>Compartilhamento de Tela ("Go Live") — Local & Internet</h3>
+          <p>
+            • Para chamar amigos de <strong>outras redes/cidades sem VPN</strong>, clique em <strong>📡 Gerar Convite</strong> na barra esquerda e envie o código gerado.<br/>
+            • Clique em <strong>🖥️ Compartilhar Tela (Go Live)</strong> para transmitir sua tela ou jogo em até 60 FPS!
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chat em Tempo Real -->
+    <section class="chat-container">
+      <div class="messages" id="messagesContainer"></div>
+      <form class="chat-input-bar" onsubmit="sendChatMessage(event)">
+        <input id="chatInput" class="chat-input" type="text" placeholder="Conversar na sala..." autocomplete="off" />
+        <button type="submit" class="btn" style="background: var(--brand); padding: 0 16px;">Enviar</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Modal Go Live (Equivalente ao PresentDesktopSourcePicker / getDesktopCaptureSources) -->
+  <div class="modal-backdrop" id="goLiveModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Compartilhar Tela (Go Live)</h2>
+        <button class="btn" onclick="closeGoLiveModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="mode-selector">
+          <div id="modeWebRtcCard" class="mode-card selected" onclick="selectShareMode('web_rtc')">
+            <h4>⚡ Modo 1: WebRTC + TURN (60 FPS + Áudio)</h4>
+            <p>Captura tela, janela de jogo ou aba com áudio do sistema (<code>soundshare_loopback</code>) usando STUN + TURN Relay.</p>
+          </div>
+          <div id="modeRelayCard" class="mode-card" onclick="selectShareMode('universal_relay')">
+            <h4>🌐 Modo 2: Relay Universal (Anti-CGNAT)</h4>
+            <p>Captura qualquer janela/tela e transmite pelo túnel WSS com backpressure <code>SignalVideoOutputSinkReady</code>. Alternativa para redes com UDP/CGNAT bloqueado (sujeito à banda de upload do anfitrião).</p>
+          </div>
+          <div id="modeNativeCard" class="mode-card" onclick="selectShareMode('native_host')">
+            <h4>🦀 Modo 3: Motor Nativo Rust (GDI)</h4>
+            <p>Usa <code>GetScreenPreviews</code> + <code>SetVideoOutputSink</code> direto no backend Rust da máquina host.</p>
+          </div>
+        </div>
+
+        <div id="nativeScreensSection" style="display: none;">
+          <div class="section-title" style="padding-left: 0;">
+            <span>Monitores Detectados pelo Rust (GetScreenPreviews)</span>
+            <button class="btn" style="padding: 3px 8px;" onclick="loadNativeScreenPreviews()">↻ Atualizar Miniaturas</button>
+          </div>
+          <div id="nativePreviewGrid" class="preview-grid"></div>
+        </div>
+
+        <div class="settings-row">
+          <div class="field-group">
+            <label>Resolução (Qualidade)</label>
+            <select id="selectResolution">
+              <option value="1280x720">720p (1280x720 - Leve)</option>
+              <option value="1920x1080" selected>1080p (1920x1080 - Full HD)</option>
+              <option value="2560x1440">1440p (2560x1440 - QHD)</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Taxa de Quadros (FPS)</label>
+            <select id="selectFps">
+              <option value="15">15 FPS (Economia)</option>
+              <option value="30" selected>30 FPS (Padrão)</option>
+              <option value="60">60 FPS (Fluido - Jogos)</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Áudio do Sistema</label>
+            <select id="selectAudioOrQuality">
+              <option value="audio_on" selected>Compartilhar Áudio do Sistema</option>
+              <option value="audio_off">Apenas Vídeo (Sem Áudio)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeGoLiveModal()">Cancelar</button>
+        <button class="btn" style="background: var(--brand); padding: 8px 18px;" onclick="confirmStartScreenShare()">🔴 Iniciar Transmissão (Go Live)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Conectar ao Servidor Remoto de um Amigo -->
+  <div class="modal-backdrop" id="joinRemoteModal">
+    <div class="modal" style="width: 480px;">
+      <div class="modal-header">
+        <h2>🔗 Conectar à Sala de um Amigo (Internet)</h2>
+        <button class="btn" onclick="closeJoinRemoteModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-muted); line-height: 1.45;">
+          Cole abaixo o <strong>Código de Convite</strong> (ex.: <code>DROCSID-xxxx-xxxx</code>) ou o <strong>Link HTTPS</strong> que seu amigo gerou no Drocsid dele:
+        </p>
+        <div class="field-group">
+          <label>Código de Convite ou URL do Servidor</label>
+          <input id="remoteInviteInput" type="text" placeholder="Ex: DROCSID-cool-frog-1234 ou https://..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="resetToLocalServer()">Voltar ao Meu Servidor Local</button>
+        <button class="btn" style="background: var(--brand); padding: 8px 16px;" onclick="connectToFriendInvite()">Conectar Agora</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Configuração TURN (Opcional - P0-6) -->
+  <div class="modal-backdrop" id="turnModal">
+    <div class="modal" style="width: 480px;">
+      <div class="modal-header">
+        <h2>⚙️ Servidor TURN (Opcional)</h2>
+        <button class="btn" onclick="closeTurnModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-muted); line-height: 1.45;">
+          Se você e seus amigos estiverem em redes com NAT/CGNAT restrito e o WebRTC falhar, o Drocsid alterna automaticamente para o <strong>Relay pelo servidor</strong>. Opcionalmente, informe um servidor TURN próprio ou da Metered/Cloudflare:
+        </p>
+        <div class="field-group">
+          <label>URL do Servidor TURN (ex: turn:seu-servidor:3478)</label>
+          <input id="turnUrlInput" type="text" placeholder="turn:..." />
+        </div>
+        <div class="field-group">
+          <label>Usuário TURN</label>
+          <input id="turnUserInput" type="text" placeholder="usuario" />
+        </div>
+        <div class="field-group">
+          <label>Senha / Credencial TURN</label>
+          <input id="turnPassInput" type="password" placeholder="senha" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="clearTurnConfig()">Limpar TURN</button>
+        <button class="btn" style="background: var(--brand); padding: 8px 16px;" onclick="saveTurnConfig()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Configuração de Áudio e Push-to-Talk (P2-3) -->
+  <div class="modal-backdrop" id="audioSettingsModal">
+    <div class="modal" style="width: 480px;">
+      <div class="modal-header">
+        <h2>🎛️ Dispositivos de Áudio & Push-to-Talk</h2>
+        <button class="btn" onclick="closeAudioSettingsModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label>Microfone de Entrada</label>
+          <select id="micSelect"></select>
+        </div>
+        <div class="field-group">
+          <label>Alto-Falante / Fone de Saída</label>
+          <select id="speakerSelect"></select>
+        </div>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-normal); cursor: pointer;">
+          <input id="pttEnabledCheckbox" type="checkbox" style="width: 16px; height: 16px; accent-color: var(--brand);" />
+          Ativar Push-to-Talk (segurar <strong>Espaço</strong> ou <strong>V</strong> para falar)
+        </label>
+        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+          Obs.: A seleção de dispositivo de saída (<code>setSinkId</code>) requer navegador compatível (Edge/Chrome desktop).
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeAudioSettingsModal()">Cancelar</button>
+        <button class="btn" style="background: var(--brand); padding: 8px 16px;" onclick="saveAudioSettings()">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="remoteAudioContainer" style="display: none;"></div>
+
+  <script>
+    // P0-6: STUN público + TURN opcional configurado pelo usuário (sem credenciais públicas mortas).
+    function getRtcConfig() {
+      const iceServers = [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" }
+      ];
+      const turnUrl = (localStorage.getItem("drocsid_turn_url") || "").trim();
+      const turnUser = (localStorage.getItem("drocsid_turn_user") || "").trim();
+      const turnPass = localStorage.getItem("drocsid_turn_pass") || "";
+      if (turnUrl) {
+        const entry = { urls: turnUrl };
+        if (turnUser) entry.username = turnUser;
+        if (turnPass) entry.credential = turnPass;
+        iceServers.push(entry);
+      }
+      return { iceServers };
+    }
+
+    function openTurnModal() {
+      document.getElementById("turnUrlInput").value = localStorage.getItem("drocsid_turn_url") || "";
+      document.getElementById("turnUserInput").value = localStorage.getItem("drocsid_turn_user") || "";
+      document.getElementById("turnPassInput").value = localStorage.getItem("drocsid_turn_pass") || "";
+      document.getElementById("turnModal").classList.add("open");
+    }
+
+    function closeTurnModal() {
+      document.getElementById("turnModal").classList.remove("open");
+    }
+
+    function saveTurnConfig() {
+      localStorage.setItem("drocsid_turn_url", document.getElementById("turnUrlInput").value.trim());
+      localStorage.setItem("drocsid_turn_user", document.getElementById("turnUserInput").value.trim());
+      localStorage.setItem("drocsid_turn_pass", document.getElementById("turnPassInput").value);
+      closeTurnModal();
+      renegotiateAllPeers();
+    }
+
+    function clearTurnConfig() {
+      localStorage.removeItem("drocsid_turn_url");
+      localStorage.removeItem("drocsid_turn_user");
+      localStorage.removeItem("drocsid_turn_pass");
+      closeTurnModal();
+    }
+
+    // ==================== Autenticação (P0-1 / P0-2) ====================
+    // O anfitrião recebe "#host=<token>" na URL aberta pelo próprio drocsid.exe.
+    // Convidados recebem "#key=<chave>" no link do convite. O fragmento (#) nunca é enviado
+    // ao servidor nas requisições HTTP e é removido da barra de endereço logo ao carregar.
+    const AUTH = (() => {
+      const params = new URLSearchParams(location.hash.slice(1));
+      const host = params.get("host") || sessionStorage.getItem("drocsid_host");
+      const key = params.get("key") || sessionStorage.getItem("drocsid_key");
+      if (params.get("host")) sessionStorage.setItem("drocsid_host", host);
+      if (params.get("key")) sessionStorage.setItem("drocsid_key", key);
+      if (location.hash) history.replaceState(null, "", location.pathname);
+      return { host, key };
+    })();
+
+    let isHost = false;
+    let remoteKey = null; // chave da sala do amigo quando conectado a outro servidor
+
+    function hostFetch(path, opts = {}) {
+      return fetch(path, {
+        ...opts,
+        headers: { ...(opts.headers || {}), Authorization: `Bearer ${AUTH.host || ""}` }
+      });
+    }
+
+    function applyRoleVisibility() {
+      const hostOnly = isHost && !customServerOrigin;
+      document.getElementById("btnHostTunnel").style.display = hostOnly ? "flex" : "none";
+      document.getElementById("modeNativeCard").style.display = hostOnly ? "block" : "none";
+      document.getElementById("btnShutdownApp").style.display = hostOnly ? "flex" : "none";
+      if (!hostOnly && selectedShareMode === "native_host") selectShareMode("web_rtc");
+    }
+
+    async function shutdownHostApp() {
+      if (!isHost) return;
+      if (!confirm("Encerrar o Drocsid (servidor e túnel) agora?")) return;
+      try {
+        await hostFetch("/api/shutdown", { method: "POST" });
+      } catch (_) {}
+      window.close();
+    }
+
+    let ws = null;
+    let customServerOrigin = null; // null = mesmo host atual, ou "https://xxxx.trycloudflare.com"
+    let myPeerId = null;
+    let currentRoom = "geral";
+    let knownRooms = ["geral", "jogos", "cinema-tela"];
+    let peers = new Map();
+
+    let localAudioStream = null;
+    let localDisplayStream = null;
+    let relayIntervalId = null;
+    let voiceEnabled = false;
+    let selfMute = false;
+    let selfDeaf = false;
+    let isSpeaking = false;
+    let myScreenShareMode = null; // null | "web_rtc" | "universal_relay" | "native_host"
+
+    const peerConnections = new Map();
+    const remoteVideoStreams = new Map();
+    const pendingCandidates = new Map();
+    const makingOfferMap = new Map();
+
+    let watchedStreamerId = null;
+    let selectedShareMode = "web_rtc";
+    let nativePreviews = [];
+    let selectedMonitorIndex = 0;
+
+    let renderedFramesCount = 0;
+    let lastFpsTick = performance.now();
+    let measuredFps = 0;
+    let currentInviteText = "";
+    let masterVolume = 1.0;
+    const BASE_DOC_TITLE = "Drocsid — Chat, Voz & Go Live (Internet & P2P)";
+    let unreadCount = 0;
+    const peerVolumes = new Map();
+    let selectedMicId = localStorage.getItem("drocsid_mic_id") || "";
+    let selectedSpeakerId = localStorage.getItem("drocsid_speaker_id") || "";
+    let pttEnabled = localStorage.getItem("drocsid_ptt") === "true";
+    let pttKeyDown = false;
+    let notifAudioCtx = null;
+
+    function init() {
+      const savedName = localStorage.getItem("drocsid_username") || ("Amigo-" + Math.floor(100 + Math.random() * 899));
+      document.getElementById("usernameInput").value = savedName;
+      if (!window.isSecureContext) {
+        appendChatEntry({
+          username: "Sistema",
+          text: "⚠️ Acesso via HTTP detectado: navegadores bloqueiam microfone e captura de tela fora de HTTPS ou localhost. Use o Link HTTPS do convite.",
+          is_system: true
+        });
+      }
+      if (!AUTH.host && !AUTH.key) {
+        document.getElementById("stageEmpty").innerHTML =
+          "<h3>Convite incompleto</h3><p>Este link não tem a chave da sala. Peça ao anfitrião para copiar o convite de novo pelo botão “📋 Copiar”.</p>";
+        return;
+      }
+      connectWebSocket();
+      if (AUTH.host) checkTunnelStatus();
+      setInterval(updateTelemetryHud, 1000);
+    }
+
+    // ==================== Túnel Automático na Internet & Convites ====================
+    async function startInternetTunnel() {
+      const btn = document.getElementById("btnHostTunnel");
+      btn.disabled = true;
+      btn.textContent = "⏳ Abrindo...";
+      document.getElementById("tunnelProviderLabel").textContent = "Iniciando túnel...";
+
+      try {
+        await hostFetch("/api/tunnel/start", { method: "POST" });
+        pollTunnelUntilReady();
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = "📡 Gerar Convite";
+        alert("Erro ao iniciar túnel: " + err.message);
+      }
+    }
+
+    function pollTunnelUntilReady() {
+      const timer = setInterval(async () => {
+        const ready = await checkTunnelStatus();
+        if (ready) {
+          clearInterval(timer);
+        }
+      }, 1500);
+    }
+
+    async function checkTunnelStatus() {
+      try {
+        const res = await hostFetch("/api/tunnel/status");
+        if (!res.ok) return false;
+        const st = await res.json();
+        document.getElementById("tunnelProviderLabel").textContent = st.provider !== "none" ? st.provider : "Rede Local";
+
+        if (st.active && st.public_url) {
+          const box = document.getElementById("inviteCodeBox");
+          box.style.display = "block";
+          currentInviteText = `Entre na minha sala do Drocsid:\nCódigo: ${st.invite_code}\nLink: ${st.invite_link}`;
+          box.innerHTML = `<strong>Código:</strong> ${escapeHtml(st.invite_code)}<br/><span style="color:#949ba4">${escapeHtml(st.invite_link)}</span>`;
+
+          document.getElementById("btnCopyInvite").style.display = "flex";
+          const btn = document.getElementById("btnHostTunnel");
+          btn.disabled = false;
+          btn.textContent = "✅ Sala Online";
+          document.getElementById("connectionBadge").textContent = "INTERNET";
+          document.getElementById("connectionBadge").style.background = "var(--green)";
+          return true;
+        }
+      } catch (_) {}
+      return false;
+    }
+
+    function copyInviteToClipboard() {
+      if (!currentInviteText) return;
+      navigator.clipboard.writeText(currentInviteText);
+      const btn = document.getElementById("btnCopyInvite");
+      const old = btn.textContent;
+      btn.textContent = "✅ Copiado! Envie aos amigos";
+      setTimeout(() => { btn.textContent = old; }, 2200);
+    }
+
+    function openJoinRemoteModal() {
+      document.getElementById("joinRemoteModal").classList.add("open");
+    }
+
+    function closeJoinRemoteModal() {
+      document.getElementById("joinRemoteModal").classList.remove("open");
+    }
+
+    function parseInviteInput(rawInput) {
+      let s = (rawInput || "").trim();
+      if (!s) return null;
+
+      // Link completo (pode vir colado dentro de uma mensagem)
+      const urlMatch = s.match(/https?:\/\/[^\s)'"]+/i);
+      if (urlMatch) {
+        const token = urlMatch[0];
+        const hashIdx = token.indexOf("#");
+        const base = (hashIdx >= 0 ? token.slice(0, hashIdx) : token).replace(/\/+$/, "");
+        const fragment = hashIdx >= 0 ? token.slice(hashIdx + 1) : "";
+        const params = new URLSearchParams(fragment);
+        const key = params.get("key") || "";
+        if (key.length < 16) return null;
+        return { origin: base, key };
+      }
+
+      const upper = s.toUpperCase();
+      let rest = "";
+      let domain = "";
+      if (upper.startsWith("DROCSID-")) {
+        rest = s.slice(8).trim();
+        domain = "trycloudflare.com";
+      } else if (upper.startsWith("LHR-")) {
+        rest = s.slice(4).trim();
+        domain = "lhr.life";
+      } else {
+        return null;
+      }
+
+      const lastDash = rest.lastIndexOf("-");
+      if (lastDash <= 0) return null;
+      const sub = rest.slice(0, lastDash).toLowerCase();
+      const key = rest.slice(lastDash + 1);
+      if (!sub || key.length < 16 || !/^[a-z0-9-]+$/i.test(sub) || !/^[a-z0-9]+$/i.test(key)) {
+        return null;
+      }
+      return { origin: `https://${sub}.${domain}`, key };
+    }
+
+    function connectToFriendInvite() {
+      const raw = document.getElementById("remoteInviteInput").value;
+      const parsed = parseInviteInput(raw);
+      if (!parsed) {
+        alert("Convite inválido. Cole o código completo (ex: DROCSID-xxx-chave) ou o link com #key=...");
+        return;
+      }
+      customServerOrigin = parsed.origin;
+      remoteKey = parsed.key;
+      applyRoleVisibility();
+      closeJoinRemoteModal();
+      document.getElementById("activeServerPill").textContent = `Conectado a: ${parsed.origin}`;
+      document.getElementById("connectionBadge").textContent = "REMOTO";
+      document.getElementById("connectionBadge").style.background = "var(--green)";
+      connectWebSocket();
+    }
+
+    function resetToLocalServer() {
+      customServerOrigin = null;
+      remoteKey = null;
+      applyRoleVisibility();
+      closeJoinRemoteModal();
+      document.getElementById("activeServerPill").textContent = "Servidor Local";
+      document.getElementById("connectionBadge").textContent = "LOCAL";
+      document.getElementById("connectionBadge").style.background = "var(--brand)";
+      connectWebSocket();
+    }
+
+    // ==================== Conexão WebSocket ====================
+    function connectWebSocket() {
+      if (ws) {
+        try { ws.onclose = null; ws.close(); } catch (_) {}
+      }
+
+      let wsUrl;
+      if (customServerOrigin) {
+        const wsProto = customServerOrigin.startsWith("https:") ? "wss:" : "ws:";
+        const hostPart = customServerOrigin.replace(/^https?:\/\//i, "");
+        wsUrl = `${wsProto}//${hostPart}/ws?key=${encodeURIComponent(remoteKey || "")}`;
+      } else {
+        const proto = location.protocol === "https:" ? "wss:" : "ws:";
+        const q = AUTH.host
+          ? `host=${encodeURIComponent(AUTH.host)}`
+          : `key=${encodeURIComponent(AUTH.key || "")}`;
+        wsUrl = `${proto}//${location.host}/ws?${q}`;
+      }
+
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        sendWs({
+          type: "join_room",
+          username: document.getElementById("usernameInput").value.trim(),
+          room: currentRoom
+        });
+        if (voiceEnabled || selfMute || selfDeaf) {
+          sendVoiceState();
+        }
+      };
+
+      ws.onmessage = async (event) => {
+        const msg = JSON.parse(event.data);
+        await handleServerMessage(msg);
+      };
+
+      ws.onclose = () => {
+        // P0-11: limpa estado local zumbi antes de reconectar
+        for (const peerId of Array.from(peerConnections.keys())) {
+          closePeerConnection(peerId);
+        }
+        peers.clear();
+        remoteVideoStreams.clear();
+        pendingCandidates.clear();
+        makingOfferMap.clear();
+        watchedStreamerId = null;
+        if (myScreenShareMode) {
+          if (relayIntervalId) {
+            clearInterval(relayIntervalId);
+            relayIntervalId = null;
+          }
+          if (localDisplayStream) {
+            localDisplayStream.getTracks().forEach(t => t.stop());
+            localDisplayStream = null;
+          }
+          myScreenShareMode = null;
+          updateGoLiveButtonState(false);
+        }
+        renderPeers();
+        renderStreamTabs();
+        updateStageView();
+        document.getElementById("hudStatus").textContent = "Reconectando...";
+        setTimeout(connectWebSocket, 2500);
+      };
+    }
+
+    function sendWs(payload) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+      }
+    }
+
+    async function handleServerMessage(msg) {
+      switch (msg.type) {
+        case "welcome":
+          myPeerId = msg.peer_id;
+          isHost = !!msg.is_host;
+          applyRoleVisibility();
+          if (Array.isArray(msg.rooms)) {
+            knownRooms = Array.from(new Set([...knownRooms, ...msg.rooms]));
+          }
+          renderRooms();
+          break;
+
+        case "room_state":
+          currentRoom = msg.room;
+          if (!knownRooms.includes(currentRoom)) knownRooms.push(currentRoom);
+          document.getElementById("currentRoomLabel").textContent = `#${currentRoom}`;
+          renderRooms();
+
+          peers.clear();
+          for (const p of msg.peers) {
+            peers.set(p.peer_id, p);
+          }
+          renderPeers();
+          renderStreamTabs();
+
+          const container = document.getElementById("messagesContainer");
+          container.innerHTML = "";
+          for (const entry of msg.chat_history) {
+            appendChatEntry(entry);
+          }
+
+          await syncWebRtcPeers();
+          break;
+
+        case "rooms_updated":
+          if (Array.isArray(msg.rooms)) {
+            knownRooms = Array.from(new Set(msg.rooms));
+            renderRooms();
+          }
+          break;
+
+        case "peer_joined":
+          peers.set(msg.peer.peer_id, msg.peer);
+          renderPeers();
+          renderStreamTabs();
+          if (msg.peer.peer_id !== myPeerId) {
+            await createAndSendOffer(msg.peer.peer_id);
+          }
+          break;
+
+        case "peer_updated":
+          peers.set(msg.peer.peer_id, msg.peer);
+          if (!msg.peer.screen_share) {
+            remoteVideoStreams.delete(msg.peer.peer_id);
+          }
+          renderPeers();
+          renderStreamTabs();
+          if (msg.peer.screen_share && !watchedStreamerId) {
+            selectWatchedStreamer(msg.peer.peer_id);
+          }
+          if (!msg.peer.screen_share && watchedStreamerId === msg.peer.peer_id) {
+            watchedStreamerId = null;
+            updateStageView();
+          }
+          break;
+
+        case "peer_left":
+          peers.delete(msg.peer_id);
+          closePeerConnection(msg.peer_id);
+          if (watchedStreamerId === msg.peer_id) {
+            watchedStreamerId = null;
+          }
+          renderPeers();
+          renderStreamTabs();
+          updateStageView();
+          break;
+
+        case "chat_broadcast":
+          appendChatEntry(msg.entry);
+          if (msg.entry && msg.entry.peer_id !== myPeerId && !msg.entry.is_system && document.hidden) {
+            unreadCount++;
+            document.title = `(${unreadCount}) ${BASE_DOC_TITLE}`;
+            playNotificationBeep(660, 80);
+          }
+          break;
+
+        case "native_video_frame":
+          handleNativeVideoFrame(msg);
+          break;
+
+        case "rtc_offer":
+          await handleRtcOffer(msg.from_id, msg.sdp);
+          break;
+
+        case "rtc_answer":
+          await handleRtcAnswer(msg.from_id, msg.sdp);
+          break;
+
+        case "rtc_ice_candidate":
+          await handleRtcIceCandidate(msg.from_id, msg.candidate);
+          break;
+      }
+    }
+
+    // ==================== Renderização de Salas, Participantes e Chat ====================
+    function renderRooms() {
+      const list = document.getElementById("roomList");
+      list.innerHTML = "";
+      for (const room of knownRooms) {
+        const btn = document.createElement("button");
+        btn.className = "room-btn" + (room === currentRoom ? " active" : "");
+        btn.innerHTML = `<span>🔊</span> <span>#${room}</span>`;
+        btn.onclick = () => switchRoom(room);
+        list.appendChild(btn);
+      }
+    }
+
+    function switchRoom(room) {
+      if (room === currentRoom) return;
+      if (myScreenShareMode) {
+        stopScreenShare();
+      }
+      for (const peerId of Array.from(peerConnections.keys())) {
+        closePeerConnection(peerId);
+      }
+      watchedStreamerId = null;
+      currentRoom = room;
+      sendWs({
+        type: "join_room",
+        username: document.getElementById("usernameInput").value.trim(),
+        room: currentRoom
+      });
+    }
+
+    function promptNewRoom() {
+      const name = prompt("Digite o nome da nova sala (ex: squad, filmes):");
+      if (!name) return;
+      const clean = name.trim().toLowerCase().replace(/\s+/g, "-");
+      if (!clean) return;
+      if (!knownRooms.includes(clean)) knownRooms.push(clean);
+      switchRoom(clean);
+    }
+
+    function updateProfile() {
+      const name = document.getElementById("usernameInput").value.trim();
+      if (name) {
+        localStorage.setItem("drocsid_username", name);
+        sendWs({
+          type: "set_username",
+          username: name
+        });
+      }
+    }
+
+    function peerAvatarColor(peerId) {
+      let hash = 0;
+      const str = String(peerId || "");
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+      }
+      const hue = Math.abs(hash) % 360;
+      return `hsl(${hue}, 62%, 44%)`;
+    }
+
+    function renderPeers() {
+      const list = document.getElementById("peerList");
+      list.innerHTML = "";
+      document.getElementById("peerCount").textContent = peers.size;
+
+      for (const peer of peers.values()) {
+        const item = document.createElement("div");
+        item.className = "peer-item";
+
+        const initials = (peer.username || "A").slice(0, 2).toUpperCase();
+        const speakingClass = peer.speaking ? " speaking" : "";
+        const isMe = peer.peer_id === myPeerId ? " (você)" : "";
+        const avatarBg = peerAvatarColor(peer.peer_id);
+
+        let badgesHtml = "";
+        if (peer.is_host) {
+          badgesHtml += `<span class="status-icon" title="Anfitrião da Sala">👑</span>`;
+        }
+        if (peer.screen_share) {
+          badgesHtml += `<button class="live-pill" onclick="selectWatchedStreamer('${peer.peer_id}')" title="Assistir transmissão de ${escapeHtml(peer.username)}">AO VIVO</button>`;
+        }
+        if (peer.in_voice && !peer.self_mute && !peer.self_deaf) {
+          badgesHtml += `<span class="status-icon" title="Na chamada de voz">🎙️</span>`;
+        }
+        if (peer.self_mute) {
+          badgesHtml += `<span class="status-icon" title="Mutado">🔇</span>`;
+        }
+        if (peer.self_deaf) {
+          badgesHtml += `<span class="status-icon" title="Áudio desativado">🙉</span>`;
+        }
+        if (peer.peer_id !== myPeerId) {
+          const curPeerVol = peerVolumes.has(peer.peer_id) ? peerVolumes.get(peer.peer_id) : 100;
+          badgesHtml += `<input type="range" min="0" max="100" value="${curPeerVol}" style="width: 48px; accent-color: var(--brand); cursor: pointer;" title="Volume de ${escapeHtml(peer.username)}" oninput="setPeerVolume('${peer.peer_id}', this.value)" />`;
+        }
+
+        item.innerHTML = `
+          <div class="peer-left">
+            <div class="avatar${speakingClass}" style="background: ${avatarBg};">${escapeHtml(initials)}</div>
+            <span class="peer-name">${escapeHtml(peer.username)}${isMe}</span>
+          </div>
+          <div class="peer-badges">${badgesHtml}</div>
+        `;
+        list.appendChild(item);
+      }
+    }
+
+    function linkifyText(escapedText) {
+      return escapedText.replace(
+        /(https:\/\/[^\s<"]+)/g,
+        '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #7289da; text-decoration: underline;">$1</a>'
+      );
+    }
+
+    function appendChatEntry(entry) {
+      const container = document.getElementById("messagesContainer");
+      const div = document.createElement("div");
+      div.className = "msg" + (entry.is_system ? " system" : "");
+      const date = new Date(entry.timestamp_ms || Date.now());
+      const timeStr = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const safeBody = linkifyText(escapeHtml(entry.text));
+
+      div.innerHTML = `
+        <div class="msg-header">
+          <span class="msg-author">${escapeHtml(entry.username)}</span>
+          <span class="msg-time">${timeStr}</span>
+        </div>
+        <div class="msg-text">${safeBody}</div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function sendChatMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById("chatInput");
+      const text = input.value.trim();
+      if (!text) return;
+      sendWs({ type: "chat_message", text });
+      input.value = "";
+    }
+
+    // ==================== Voz (WebRTC Audio + VAD Speaking Callback + PTT + Dispositivos) ====================
+    function playNotificationBeep(freq = 660, durationMs = 80) {
+      if (selfDeaf) return;
+      try {
+        if (!notifAudioCtx) {
+          notifAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const osc = notifAudioCtx.createOscillator();
+        const gain = notifAudioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.value = 0.05 * masterVolume;
+        osc.connect(gain);
+        gain.connect(notifAudioCtx.destination);
+        osc.start();
+        setTimeout(() => {
+          try { osc.stop(); } catch (_) {}
+        }, durationMs);
+      } catch (_) {}
+    }
+
+    function updateVoiceButtonLabel() {
+      const btn = document.getElementById("btnVoice");
+      if (!voiceEnabled) {
+        btn.textContent = "🎙️ Entrar na Voz";
+        btn.classList.remove("active-green");
+        return;
+      }
+      btn.classList.add("active-green");
+      if (pttEnabled) {
+        btn.textContent = pttKeyDown ? "🟢 PTT Falando" : "🟡 PTT (Segure V/Espaço)";
+      } else {
+        btn.textContent = "🟢 Voz Conectada";
+      }
+    }
+
+    async function captureMicStream() {
+      const baseAudio = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      };
+      if (selectedMicId) {
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            audio: { ...baseAudio, deviceId: { exact: selectedMicId } },
+            video: false
+          });
+        } catch (_) {
+          selectedMicId = "";
+          localStorage.removeItem("drocsid_mic_id");
+        }
+      }
+      return await navigator.mediaDevices.getUserMedia({ audio: baseAudio, video: false });
+    }
+
+    async function openAudioSettingsModal() {
+      document.getElementById("pttEnabledCheckbox").checked = pttEnabled;
+      const micSelect = document.getElementById("micSelect");
+      const spkSelect = document.getElementById("speakerSelect");
+      micSelect.innerHTML = `<option value="">Padrão do Sistema</option>`;
+      spkSelect.innerHTML = `<option value="">Padrão do Sistema</option>`;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        for (const dev of devices) {
+          if (dev.kind === "audioinput") {
+            const opt = document.createElement("option");
+            opt.value = dev.deviceId;
+            opt.textContent = dev.label || `Microfone (${dev.deviceId.slice(0, 6)})`;
+            if (dev.deviceId === selectedMicId) opt.selected = true;
+            micSelect.appendChild(opt);
+          } else if (dev.kind === "audiooutput") {
+            const opt = document.createElement("option");
+            opt.value = dev.deviceId;
+            opt.textContent = dev.label || `Saída (${dev.deviceId.slice(0, 6)})`;
+            if (dev.deviceId === selectedSpeakerId) opt.selected = true;
+            spkSelect.appendChild(opt);
+          }
+        }
+      } catch (_) {}
+      document.getElementById("audioSettingsModal").classList.add("open");
+    }
+
+    function closeAudioSettingsModal() {
+      document.getElementById("audioSettingsModal").classList.remove("open");
+    }
+
+    async function applyOutputSinkToElement(el) {
+      if (selectedSpeakerId && typeof el.setSinkId === "function") {
+        try {
+          await el.setSinkId(selectedSpeakerId);
+        } catch (_) {}
+      }
+    }
+
+    async function saveAudioSettings() {
+      const prevMic = selectedMicId;
+      selectedMicId = document.getElementById("micSelect").value;
+      selectedSpeakerId = document.getElementById("speakerSelect").value;
+      pttEnabled = document.getElementById("pttEnabledCheckbox").checked;
+
+      localStorage.setItem("drocsid_mic_id", selectedMicId);
+      localStorage.setItem("drocsid_speaker_id", selectedSpeakerId);
+      localStorage.setItem("drocsid_ptt", pttEnabled ? "true" : "false");
+
+      pttKeyDown = false;
+      closeAudioSettingsModal();
+
+      if (voiceEnabled && prevMic !== selectedMicId) {
+        try {
+          const newStream = await captureMicStream();
+          const newTrack = newStream.getAudioTracks()[0];
+          const oldTracks = localAudioStream ? localAudioStream.getAudioTracks() : [];
+          for (const pc of peerConnections.values()) {
+            for (const sender of pc.getSenders()) {
+              if (sender.track && oldTracks.some(t => t.id === sender.track.id) && newTrack) {
+                await sender.replaceTrack(newTrack);
+              }
+            }
+          }
+          oldTracks.forEach(t => t.stop());
+          localAudioStream = newStream;
+          setupVoiceActivityDetection(localAudioStream);
+        } catch (err) {
+          alert("Erro ao trocar microfone: " + err.message);
+        }
+      }
+
+      syncLocalAudioEnabled();
+      updateVoiceButtonLabel();
+      await applyOutputSinkToElement(document.getElementById("stageVideo"));
+      for (const a of document.querySelectorAll("#remoteAudioContainer audio")) {
+        await applyOutputSinkToElement(a);
+      }
+    }
+
+    function isEditableElementFocused() {
+      const el = document.activeElement;
+      if (!el) return false;
+      const tag = el.tagName;
+      if (tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable) return true;
+      if (tag === "INPUT") {
+        const type = (el.type || "text").toLowerCase();
+        return type !== "range" && type !== "checkbox" && type !== "button";
+      }
+      return false;
+    }
+
+    window.addEventListener("keydown", (e) => {
+      if (!pttEnabled || !voiceEnabled || selfMute || selfDeaf) return;
+      if (e.code !== "KeyV" && e.code !== "Space") return;
+      if (isEditableElementFocused()) return;
+      if (e.code === "Space") e.preventDefault();
+      if (!pttKeyDown) {
+        pttKeyDown = true;
+        syncLocalAudioEnabled();
+        updateVoiceButtonLabel();
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (e.code !== "KeyV" && e.code !== "Space") return;
+      if (pttKeyDown) {
+        pttKeyDown = false;
+        syncLocalAudioEnabled();
+        updateVoiceButtonLabel();
+        if (isSpeaking) {
+          isSpeaking = false;
+          sendVoiceState();
+        }
+      }
+    });
+
+    window.addEventListener("blur", () => {
+      if (pttKeyDown) {
+        pttKeyDown = false;
+        syncLocalAudioEnabled();
+        updateVoiceButtonLabel();
+      }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && unreadCount > 0) {
+        unreadCount = 0;
+        document.title = BASE_DOC_TITLE;
+      }
+    });
+
+    async function toggleVoiceConnection() {
+      if (!voiceEnabled) {
+        try {
+          localAudioStream = await captureMicStream();
+          voiceEnabled = true;
+          pttKeyDown = false;
+          syncLocalAudioEnabled();
+          updateVoiceButtonLabel();
+          setupVoiceActivityDetection(localAudioStream);
+          sendVoiceState();
+          await renegotiateAllPeers();
+        } catch (err) {
+          alert("Não foi possível acessar o microfone: " + err.message);
+        }
+      } else {
+        if (localAudioStream) {
+          localAudioStream.getTracks().forEach(t => t.stop());
+          localAudioStream = null;
+        }
+        voiceEnabled = false;
+        pttKeyDown = false;
+        isSpeaking = false;
+        updateVoiceButtonLabel();
+        sendVoiceState();
+        await renegotiateAllPeers();
+      }
+    }
+
+    function setupVoiceActivityDetection(stream) {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        const data = new Uint8Array(analyser.frequencyBinCount);
+
+        setInterval(() => {
+          if (!voiceEnabled || selfMute || selfDeaf || (pttEnabled && !pttKeyDown)) {
+            if (isSpeaking) {
+              isSpeaking = false;
+              sendVoiceState();
+            }
+            return;
+          }
+          analyser.getByteFrequencyData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) sum += data[i];
+          const avg = sum / data.length;
+          const nowSpeaking = avg > 18;
+          if (nowSpeaking !== isSpeaking) {
+            isSpeaking = nowSpeaking;
+            sendVoiceState();
+          }
+        }, 180);
+      } catch (_) {}
+    }
+
+    function syncLocalAudioEnabled() {
+      if (localAudioStream) {
+        const pttAllows = !pttEnabled || pttKeyDown;
+        const enabled = !(selfMute || selfDeaf) && pttAllows;
+        localAudioStream.getAudioTracks().forEach(t => { t.enabled = enabled; });
+      }
+    }
+
+    function toggleMute() {
+      selfMute = !selfMute;
+      syncLocalAudioEnabled();
+      const btn = document.getElementById("btnMute");
+      btn.classList.toggle("active-red", selfMute);
+      btn.textContent = selfMute ? "🔇 Mutado" : "🎤 Mutar";
+      sendVoiceState();
+    }
+
+    function toggleDeaf() {
+      selfDeaf = !selfDeaf;
+      // P2-1: igual ao Discord, Deafen também silencia o microfone local
+      syncLocalAudioEnabled();
+      document.querySelectorAll("#remoteAudioContainer audio").forEach(a => {
+        a.muted = selfDeaf;
+      });
+      const stageVideo = document.getElementById("stageVideo");
+      stageVideo.muted = selfDeaf || (watchedStreamerId === myPeerId);
+
+      const btn = document.getElementById("btnDeaf");
+      btn.classList.toggle("active-red", selfDeaf);
+      btn.textContent = selfDeaf ? "🙉 Áudio Desativado" : "🎧 Desativar Áudio (Deafen)";
+      sendVoiceState();
+    }
+
+    function sendVoiceState() {
+      sendWs({
+        type: "update_voice_state",
+        in_voice: voiceEnabled,
+        self_mute: selfMute,
+        self_deaf: selfDeaf,
+        speaking: isSpeaking
+      });
+    }
+
+    // ==================== Compartilhamento de Tela ("Go Live") ====================
+    function handleGoLiveButton() {
+      if (myScreenShareMode) {
+        stopScreenShare();
+      } else {
+        openGoLiveModal();
+      }
+    }
+
+    function openGoLiveModal() {
+      document.getElementById("goLiveModal").classList.add("open");
+      if (selectedShareMode === "native_host") {
+        loadNativeScreenPreviews();
+      }
+    }
+
+    function closeGoLiveModal() {
+      document.getElementById("goLiveModal").classList.remove("open");
+    }
+
+    function selectShareMode(mode) {
+      selectedShareMode = mode;
+      document.getElementById("modeWebRtcCard").classList.toggle("selected", mode === "web_rtc");
+      document.getElementById("modeRelayCard").classList.toggle("selected", mode === "universal_relay");
+      document.getElementById("modeNativeCard").classList.toggle("selected", mode === "native_host");
+      document.getElementById("nativeScreensSection").style.display = mode === "native_host" ? "block" : "none";
+      if (mode === "native_host") {
+        loadNativeScreenPreviews();
+      }
+    }
+
+    async function loadNativeScreenPreviews() {
+      const grid = document.getElementById("nativePreviewGrid");
+      grid.innerHTML = `<div style="color: var(--text-muted); font-size: 12px;">Consultando GetScreenPreviews no backend Rust...</div>`;
+      try {
+        const res = await hostFetch("/api/screens");
+        if (!res.ok) {
+          throw new Error("Acesso restrito ao anfitrião (HTTP " + res.status + ")");
+        }
+        nativePreviews = await res.json();
+        grid.innerHTML = "";
+        nativePreviews.forEach((scr, idx) => {
+          const card = document.createElement("div");
+          card.className = "preview-card" + (idx === selectedMonitorIndex ? " selected" : "");
+          card.onclick = () => {
+            selectedMonitorIndex = idx;
+            document.querySelectorAll(".preview-card").forEach((el, i) => {
+              el.classList.toggle("selected", i === idx);
+            });
+          };
+          card.innerHTML = `
+            <img src="${scr.thumbnail_data_url}" alt="${escapeHtml(scr.name)}" />
+            <div class="preview-title">${escapeHtml(scr.name)}</div>
+          `;
+          grid.appendChild(card);
+        });
+      } catch (err) {
+        grid.innerHTML = `<div style="color: var(--red); font-size: 12px;">Erro ao carregar monitores: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    async function confirmStartScreenShare() {
+      const [width, height] = document.getElementById("selectResolution").value.split("x").map(Number);
+      const fps = Number(document.getElementById("selectFps").value);
+      const wantAudio = document.getElementById("selectAudioOrQuality").value === "audio_on";
+
+      closeGoLiveModal();
+
+      if (selectedShareMode === "web_rtc" || selectedShareMode === "universal_relay") {
+        try {
+          localDisplayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              width: { ideal: width },
+              height: { ideal: height },
+              frameRate: { ideal: fps, max: fps }
+            },
+            audio: wantAudio
+          });
+
+          const videoTrack = localDisplayStream.getVideoTracks()[0];
+          const settings = videoTrack.getSettings();
+          const sourceName = videoTrack.label || "Tela / Janela";
+
+          videoTrack.onended = () => {
+            stopScreenShare();
+          };
+
+          myScreenShareMode = selectedShareMode;
+          updateGoLiveButtonState(true);
+
+          watchedStreamerId = myPeerId;
+
+          sendWs({
+            type: "start_screen_share",
+            mode: selectedShareMode,
+            source_id: `${selectedShareMode}:display:0`,
+            source_name: sourceName,
+            width: settings.width || width,
+            height: settings.height || height,
+            fps: settings.frameRate || fps,
+            has_audio: localDisplayStream.getAudioTracks().length > 0,
+            quality: null
+          });
+
+          if (selectedShareMode === "web_rtc") {
+            remoteVideoStreams.set(myPeerId, localDisplayStream);
+            await renegotiateAllPeers();
+          } else {
+            startUniversalRelayCaptureLoop(localDisplayStream, width, height, Math.min(fps, 25));
+          }
+          updateStageView();
+        } catch (err) {
+          console.warn("Compartilhamento cancelado:", err);
+        }
+      } else {
+        const chosen = nativePreviews[selectedMonitorIndex] || {
+          id: `screen:${selectedMonitorIndex}:0`,
+          name: `Tela ${selectedMonitorIndex + 1} (Rust GDI)`
+        };
+
+        myScreenShareMode = "native_host";
+        updateGoLiveButtonState(true);
+        watchedStreamerId = myPeerId;
+
+        sendWs({
+          type: "start_screen_share",
+          mode: "native_host",
+          source_id: chosen.id,
+          source_name: chosen.name,
+          width,
+          height,
+          fps: Math.min(fps, 30),
+          has_audio: false,
+          quality: 75
+        });
+
+        updateStageView();
+      }
+    }
+
+    function startUniversalRelayCaptureLoop(stream, targetW, targetH, fps) {
+      if (relayIntervalId) clearInterval(relayIntervalId);
+      const hiddenVideo = document.createElement("video");
+      hiddenVideo.srcObject = stream;
+      hiddenVideo.muted = true;
+      hiddenVideo.play().catch(() => {});
+
+      const offCanvas = document.createElement("canvas");
+      const ctx = offCanvas.getContext("2d");
+      let seq = 0;
+
+      relayIntervalId = setInterval(() => {
+        if (!localDisplayStream || myScreenShareMode !== "universal_relay") {
+          clearInterval(relayIntervalId);
+          return;
+        }
+        if (!ws || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 256 * 1024) {
+          return;
+        }
+        const vw = hiddenVideo.videoWidth || targetW;
+        const vh = hiddenVideo.videoHeight || targetH;
+        if (vw === 0 || vh === 0) return;
+
+        const w = Math.min(vw, 1280);
+        const h = Math.round((vh * w) / vw);
+        offCanvas.width = w;
+        offCanvas.height = h;
+        ctx.drawImage(hiddenVideo, 0, 0, w, h);
+
+        const dataUrl = offCanvas.toDataURL("image/jpeg", 0.68);
+        const b64 = dataUrl.split(",")[1];
+        if (b64) {
+          seq++;
+          sendWs({
+            type: "push_video_frame",
+            frame_seq: seq,
+            width: w,
+            height: h,
+            jpeg_base64: b64
+          });
+        }
+      }, Math.max(45, Math.round(1000 / fps)));
+    }
+
+    async function stopScreenShare() {
+      if (relayIntervalId) {
+        clearInterval(relayIntervalId);
+        relayIntervalId = null;
+      }
+      // P0-8: remove explicitamente os senders da tela antes de renegociar para não congelar nos amigos
+      if (localDisplayStream) {
+        const displayTracks = new Set(localDisplayStream.getTracks().map(t => t.id));
+        for (const pc of peerConnections.values()) {
+          for (const sender of pc.getSenders()) {
+            if (sender.track && displayTracks.has(sender.track.id)) {
+              try { pc.removeTrack(sender); } catch (_) {}
+            }
+          }
+        }
+        localDisplayStream.getTracks().forEach(t => t.stop());
+        localDisplayStream = null;
+      }
+      remoteVideoStreams.delete(myPeerId);
+      myScreenShareMode = null;
+      updateGoLiveButtonState(false);
+
+      sendWs({ type: "stop_screen_share" });
+      await renegotiateAllPeers();
+      updateStageView();
+    }
+
+    function updateGoLiveButtonState(active) {
+      const btn = document.getElementById("btnGoLive");
+      btn.classList.toggle("streaming", active);
+      btn.textContent = active ? "⏹️ Parar Compartilhamento" : "🖥️ Compartilhar Tela (Go Live)";
+    }
+
+    // ==================== Recepção de Quadros + Backpressure (SignalVideoOutputSinkReady) ====================
+    function handleNativeVideoFrame(msg) {
+      if (!watchedStreamerId) {
+        watchedStreamerId = msg.streamer_id;
+        renderStreamTabs();
+        updateStageView();
+      }
+
+      if (watchedStreamerId !== msg.streamer_id) {
+        sendWs({
+          type: "signal_video_output_sink_ready",
+          streamer_id: msg.streamer_id,
+          frame_seq: msg.frame_seq
+        });
+        return;
+      }
+
+      const canvas = document.getElementById("stageCanvas");
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+
+      img.onload = () => {
+        if (canvas.width !== msg.width || canvas.height !== msg.height) {
+          canvas.width = msg.width;
+          canvas.height = msg.height;
+        }
+        ctx.drawImage(img, 0, 0, msg.width, msg.height);
+        renderedFramesCount++;
+
+        requestAnimationFrame(() => {
+          sendWs({
+            type: "signal_video_output_sink_ready",
+            streamer_id: msg.streamer_id,
+            frame_seq: msg.frame_seq
+          });
+        });
+      };
+
+      img.src = "data:image/jpeg;base64," + msg.jpeg_base64;
+    }
+
+    // ==================== Palco (Stage) ====================
+    function renderStreamTabs() {
+      const tabsEl = document.getElementById("streamTabs");
+      const livePeers = Array.from(peers.values()).filter(p => p.screen_share);
+
+      if (livePeers.length === 0) {
+        tabsEl.innerHTML = `<span style="color: var(--text-muted);">Nenhuma transmissão ativa no momento</span>`;
+        return;
+      }
+
+      tabsEl.innerHTML = "";
+      for (const p of livePeers) {
+        const s = p.screen_share;
+        const btn = document.createElement("button");
+        btn.className = "stream-tab" + (watchedStreamerId === p.peer_id ? " active" : "");
+        const modeTag = s.mode === "native_host"
+          ? "🦀 Rust GDI"
+          : (s.mode === "universal_relay" ? "🌐 Relay WSS" : "⚡ WebRTC");
+        btn.innerHTML = `<span>🔴</span> <strong>${escapeHtml(p.username)}</strong> <span>(${s.width}x${s.height} @ ${s.fps}fps • ${modeTag})</span>`;
+        btn.onclick = () => selectWatchedStreamer(p.peer_id);
+        tabsEl.appendChild(btn);
+      }
+    }
+
+    function selectWatchedStreamer(peerId) {
+      watchedStreamerId = peerId;
+      renderStreamTabs();
+      updateStageView();
+    }
+
+    function getEffectiveVolume(peerId) {
+      const pVol = peerId && peerVolumes.has(peerId) ? peerVolumes.get(peerId) / 100 : 1.0;
+      return Math.max(0, Math.min(1, masterVolume * pVol));
+    }
+
+    function applyAllAudioVolumes() {
+      const videoEl = document.getElementById("stageVideo");
+      videoEl.volume = getEffectiveVolume(watchedStreamerId);
+      document.querySelectorAll("#remoteAudioContainer audio").forEach(a => {
+        const pid = a.dataset.peerId || "";
+        a.volume = getEffectiveVolume(pid);
+      });
+    }
+
+    function setStageVolume(val) {
+      masterVolume = Math.max(0, Math.min(1, Number(val) / 100));
+      applyAllAudioVolumes();
+    }
+
+    function setPeerVolume(peerId, val) {
+      peerVolumes.set(peerId, Math.max(0, Math.min(100, Number(val))));
+      applyAllAudioVolumes();
+    }
+
+    function updateStageView() {
+      const videoEl = document.getElementById("stageVideo");
+      const canvasEl = document.getElementById("stageCanvas");
+      const emptyEl = document.getElementById("stageEmpty");
+
+      const streamer = watchedStreamerId ? peers.get(watchedStreamerId) : null;
+      if (!streamer || !streamer.screen_share) {
+        videoEl.style.display = "none";
+        videoEl.srcObject = null;
+        canvasEl.style.display = "none";
+        emptyEl.style.display = "block";
+        return;
+      }
+
+      emptyEl.style.display = "none";
+      const isSelfUniversalRelay =
+        streamer.screen_share.mode === "universal_relay" &&
+        watchedStreamerId === myPeerId &&
+        localDisplayStream;
+
+      if (isSelfUniversalRelay) {
+        canvasEl.style.display = "none";
+        videoEl.style.display = "block";
+        if (videoEl.srcObject !== localDisplayStream) {
+          videoEl.srcObject = localDisplayStream;
+          videoEl.muted = true;
+          videoEl.play().catch(() => {});
+        }
+      } else if (streamer.screen_share.mode === "native_host" || streamer.screen_share.mode === "universal_relay") {
+        videoEl.style.display = "none";
+        canvasEl.style.display = "block";
+      } else {
+        canvasEl.style.display = "none";
+        videoEl.style.display = "block";
+        const stream = remoteVideoStreams.get(watchedStreamerId);
+        if (stream && videoEl.srcObject !== stream) {
+          videoEl.srcObject = stream;
+          videoEl.muted = selfDeaf || (watchedStreamerId === myPeerId);
+          videoEl.volume = getEffectiveVolume(watchedStreamerId);
+          applyOutputSinkToElement(videoEl);
+          videoEl.play().catch(() => {});
+        }
+      }
+    }
+
+    function toggleStageFullscreen() {
+      const viewport = document.getElementById("stageViewport");
+      if (!document.fullscreenElement) {
+        viewport.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    async function togglePiP() {
+      const videoEl = document.getElementById("stageVideo");
+      if (videoEl.style.display !== "none" && videoEl.srcObject) {
+        try {
+          if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+          } else {
+            await videoEl.requestPictureInPicture();
+          }
+        } catch (_) {}
+      }
+    }
+
+    function updateTelemetryHud() {
+      const now = performance.now();
+      const dt = (now - lastFpsTick) / 1000;
+      if (dt > 0) {
+        measuredFps = Math.round(renderedFramesCount / dt);
+        renderedFramesCount = 0;
+        lastFpsTick = now;
+      }
+
+      const streamer = watchedStreamerId ? peers.get(watchedStreamerId) : null;
+      const hud = document.getElementById("hudStatus");
+      if (streamer && streamer.screen_share) {
+        const s = streamer.screen_share;
+        const engine = (s.mode === "native_host" || s.mode === "universal_relay")
+          ? `${s.mode === "native_host" ? "Rust GDI" : "Relay Internet"} (${measuredFps} FPS Acked)`
+          : `WebRTC P2P+TURN (${s.fps} FPS Alvo)`;
+        hud.textContent = `Assistindo ${streamer.username} • ${s.width}x${s.height} • ${engine}`;
+      } else {
+        hud.textContent = `Sala #${currentRoom} • ${peers.size} online`;
+      }
+    }
+
+    // ==================== Malha WebRTC (Voz + Vídeo/Áudio de Tela P2P/TURN) ====================
+    async function fallbackWebRtcToUniversalRelay() {
+      if (myScreenShareMode !== "web_rtc" || !localDisplayStream) return;
+      const track = localDisplayStream.getVideoTracks()[0];
+      const settings = track ? track.getSettings() : {};
+      const width = settings.width || 1280;
+      const height = settings.height || 720;
+      const fps = Math.min(settings.frameRate || 24, 24);
+      const sourceName = (track && track.label) || "Tela / Janela";
+
+      // Remove senders da tela do WebRTC antes de migrar para o Relay
+      const displayTracks = new Set(localDisplayStream.getTracks().map(t => t.id));
+      for (const pc of peerConnections.values()) {
+        for (const sender of pc.getSenders()) {
+          if (sender.track && displayTracks.has(sender.track.id)) {
+            try { pc.removeTrack(sender); } catch (_) {}
+          }
+        }
+      }
+      remoteVideoStreams.delete(myPeerId);
+      myScreenShareMode = "universal_relay";
+      sendWs({
+        type: "start_screen_share",
+        mode: "universal_relay",
+        source_id: "universal_relay:fallback:0",
+        source_name: sourceName,
+        width,
+        height,
+        fps,
+        has_audio: false,
+        quality: null
+      });
+      startUniversalRelayCaptureLoop(localDisplayStream, width, height, fps);
+      document.getElementById("hudStatus").textContent =
+        "P2P bloqueado pela rede — alternado automaticamente para Relay!";
+      updateStageView();
+    }
+
+    function getOrCreatePeerConnection(remotePeerId) {
+      if (peerConnections.has(remotePeerId)) {
+        return peerConnections.get(remotePeerId);
+      }
+
+      const pc = new RTCPeerConnection(getRtcConfig());
+      peerConnections.set(remotePeerId, pc);
+      if (!pendingCandidates.has(remotePeerId)) {
+        pendingCandidates.set(remotePeerId, []);
+      }
+
+      attachLocalTracksToPc(pc);
+
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
+          sendWs({
+            type: "rtc_ice_candidate",
+            target_id: remotePeerId,
+            candidate: e.candidate
+          });
+        }
+      };
+
+      // P0-6: fallback automático para o Relay quando ICE falha (ex: CGNAT simétrico sem TURN)
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === "failed") {
+          if (myScreenShareMode === "web_rtc" && localDisplayStream) {
+            fallbackWebRtcToUniversalRelay();
+          } else {
+            try { pc.restartIce(); } catch (_) {}
+          }
+        }
+      };
+
+      pc.ontrack = (e) => {
+        const stream = e.streams && e.streams[0];
+        if (!stream) return;
+
+        if (e.track.kind === "video") {
+          remoteVideoStreams.set(remotePeerId, stream);
+          if (!watchedStreamerId) {
+            watchedStreamerId = remotePeerId;
+          }
+          renderStreamTabs();
+          updateStageView();
+        } else if (e.track.kind === "audio") {
+          // P0-9: se a stream também tem vídeo, o áudio já toca no #stageVideo — evita duplicar
+          if (stream.getVideoTracks().length > 0) {
+            return;
+          }
+          let audioEl = document.getElementById(`audio-${remotePeerId}-${stream.id}`);
+          if (!audioEl) {
+            audioEl = document.createElement("audio");
+            audioEl.id = `audio-${remotePeerId}-${stream.id}`;
+            audioEl.dataset.peerId = remotePeerId;
+            audioEl.autoplay = true;
+            audioEl.muted = selfDeaf;
+            audioEl.volume = getEffectiveVolume(remotePeerId);
+            applyOutputSinkToElement(audioEl);
+            document.getElementById("remoteAudioContainer").appendChild(audioEl);
+          }
+          audioEl.srcObject = stream;
+        }
+      };
+
+      return pc;
+    }
+
+    function attachLocalTracksToPc(pc) {
+      const existingTrackIds = new Set(
+        pc.getSenders().map(s => s.track && s.track.id).filter(Boolean)
+      );
+
+      if (localAudioStream) {
+        for (const track of localAudioStream.getTracks()) {
+          if (!existingTrackIds.has(track.id)) {
+            pc.addTrack(track, localAudioStream);
+          }
+        }
+      }
+
+      if (localDisplayStream && myScreenShareMode === "web_rtc") {
+        for (const track of localDisplayStream.getTracks()) {
+          if (!existingTrackIds.has(track.id)) {
+            pc.addTrack(track, localDisplayStream);
+          }
+        }
+      }
+    }
+
+    async function drainPendingCandidates(remotePeerId, pc) {
+      const queue = pendingCandidates.get(remotePeerId);
+      if (!queue || queue.length === 0) return;
+      pendingCandidates.set(remotePeerId, []);
+      for (const candidate of queue) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (_) {}
+      }
+    }
+
+    async function syncWebRtcPeers() {
+      for (const peerId of peers.keys()) {
+        if (peerId !== myPeerId && String(myPeerId) < String(peerId)) {
+          await createAndSendOffer(peerId);
+        }
+      }
+    }
+
+    async function renegotiateAllPeers() {
+      for (const peerId of peers.keys()) {
+        if (peerId !== myPeerId) {
+          await createAndSendOffer(peerId);
+        }
+      }
+    }
+
+    async function createAndSendOffer(remotePeerId) {
+      const pc = getOrCreatePeerConnection(remotePeerId);
+      attachLocalTracksToPc(pc);
+      makingOfferMap.set(remotePeerId, true);
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        sendWs({
+          type: "rtc_offer",
+          target_id: remotePeerId,
+          sdp: pc.localDescription
+        });
+      } catch (err) {
+        console.warn("Erro ao criar oferta WebRTC:", err);
+      } finally {
+        makingOfferMap.set(remotePeerId, false);
+      }
+    }
+
+    // P0-7: Perfect Negotiation (evita glare quando os dois mandam offer ao mesmo tempo)
+    async function handleRtcOffer(fromId, sdp) {
+      const pc = getOrCreatePeerConnection(fromId);
+      attachLocalTracksToPc(pc);
+      const polite = String(myPeerId) < String(fromId);
+      const offerCollision = !!makingOfferMap.get(fromId) || pc.signalingState !== "stable";
+
+      if (offerCollision && !polite) {
+        return;
+      }
+
+      try {
+        if (offerCollision && polite) {
+          await pc.setLocalDescription({ type: "rollback" });
+        }
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        await drainPendingCandidates(fromId, pc);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        sendWs({
+          type: "rtc_answer",
+          target_id: fromId,
+          sdp: pc.localDescription
+        });
+      } catch (err) {
+        console.warn("Erro ao processar oferta WebRTC:", err);
+      }
+    }
+
+    async function handleRtcAnswer(fromId, sdp) {
+      const pc = peerConnections.get(fromId);
+      if (!pc) return;
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        await drainPendingCandidates(fromId, pc);
+      } catch (err) {
+        console.warn("Erro ao aplicar resposta WebRTC:", err);
+      }
+    }
+
+    async function handleRtcIceCandidate(fromId, candidate) {
+      const pc = getOrCreatePeerConnection(fromId);
+      if (!pc.remoteDescription || !pc.remoteDescription.type) {
+        const queue = pendingCandidates.get(fromId) || [];
+        queue.push(candidate);
+        pendingCandidates.set(fromId, queue);
+        return;
+      }
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (_) {}
+    }
+
+    function closePeerConnection(peerId) {
+      const pc = peerConnections.get(peerId);
+      if (pc) {
+        pc.close();
+        peerConnections.delete(peerId);
+      }
+      pendingCandidates.delete(peerId);
+      makingOfferMap.delete(peerId);
+      remoteVideoStreams.delete(peerId);
+      document.querySelectorAll(`[id^="audio-${peerId}-"]`).forEach(el => el.remove());
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    window.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
