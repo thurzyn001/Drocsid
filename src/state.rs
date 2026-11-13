@@ -10,8 +10,11 @@ use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
 use crate::{
-    capture::capture_monitor_jpeg,
-    protocol::{ChatEntry, PeerInfo, ScreenShareInfo, ScreenShareMode, ServerMessage},
+    capture::capture_source_jpeg_bytes,
+    protocol::{
+        encode_server_binary_frame, ChatEntry, PeerInfo, ScreenShareInfo, ScreenShareMode,
+        ServerMessage,
+    },
     security::Secrets,
     tunnel::TunnelManager,
 };
@@ -29,6 +32,8 @@ pub struct ConnectedPeer {
     pub sink_ready_seq: HashMap<Uuid, (u64, u64)>,
     /// Timestamp da última mensagem de chat enviada (para rate limit)
     pub last_chat_ms: u64,
+    /// Timestamp do último efeito sonoro disparado (para rate limit)
+    pub last_sound_ms: u64,
 }
 
 pub struct AppState {
@@ -73,7 +78,7 @@ impl AppState {
             peers: RwLock::new(HashMap::new()),
             chat_history: RwLock::new(history),
             chat_persistence_enabled: AtomicBool::new(false),
-            tunnel: TunnelManager::new(port, secrets.room_key.clone()),
+            tunnel: TunnelManager::new(port, secrets.current_room_key()),
             secrets,
         })
     }
@@ -196,6 +201,55 @@ impl AppState {
         true
     }
 
+    /// Distribui um quadro de vídeo binário (`DVF\x01`) sem Base64 para os espectadores da sala,
+    /// aplicando o controle de backpressure `SignalVideoOutputSinkReady`.
+    pub async fn relay_binary_video_frame_with_backpressure(
+        &self,
+        streamer_id: Uuid,
+        frame_seq: u64,
+        width: u16,
+        height: u16,
+        jpeg_bytes: &[u8],
+    ) -> bool {
+        let now = now_ms();
+        let packet = encode_server_binary_frame(streamer_id, frame_seq, width, height, jpeg_bytes);
+        let frame_msg = ServerMessage::BinaryVideoFrame(packet);
+
+        let mut peers = self.peers.write().await;
+        let (room, is_universal_relay) = match peers.get(&streamer_id) {
+            Some(p) => match &p.info.screen_share {
+                Some(ss) => (p.info.room.clone(), ss.mode == ScreenShareMode::UniversalRelay),
+                None => return false,
+            },
+            _ => return false,
+        };
+
+        for (viewer_id, viewer) in peers.iter_mut() {
+            if viewer.info.room != room {
+                continue;
+            }
+            if is_universal_relay && *viewer_id == streamer_id {
+                continue;
+            }
+
+            let (acked_seq, last_send_ms) = viewer
+                .sink_ready_seq
+                .get(&streamer_id)
+                .copied()
+                .unwrap_or((0, 0));
+
+            if should_send_frame(acked_seq, last_send_ms, frame_seq, now) {
+                if viewer.tx.try_send(frame_msg.clone()).is_ok() {
+                    viewer
+                        .sink_ready_seq
+                        .insert(streamer_id, (acked_seq, now));
+                }
+            }
+        }
+
+        true
+    }
+
     /// Para qualquer loop ativo de captura nativa de tela de um participante (`ClearDesktopSource`).
     pub async fn stop_native_capture_for_peer(&self, peer_id: Uuid) {
         let mut peers = self.peers.write().await;
@@ -227,13 +281,7 @@ impl AppState {
             }
         }
 
-        let monitor_index = info
-            .source_id
-            .split(':')
-            .nth(1)
-            .and_then(|s| s.parse::<usize>().ok())
-            .unwrap_or(0);
-
+        let source_id = info.source_id.clone();
         let target_width = info.width.clamp(480, 1920);
         let fps = info.fps.clamp(5, 30);
         let frame_interval = Duration::from_millis((1000 / fps).max(33) as u64);
@@ -245,12 +293,13 @@ impl AppState {
                 let loop_start = std::time::Instant::now();
                 frame_seq += 1;
 
+                let src = source_id.clone();
                 let capture_res = tokio::task::spawn_blocking(move || {
-                    capture_monitor_jpeg(monitor_index, target_width, quality)
+                    capture_source_jpeg_bytes(&src, target_width, quality)
                 })
                 .await;
 
-                let (w, h, jpeg_base64) = match capture_res {
+                let (w, h, jpeg_bytes) = match capture_res {
                     Ok(Ok(data)) => data,
                     _ => {
                         tokio::time::sleep(Duration::from_millis(200)).await;
@@ -271,7 +320,13 @@ impl AppState {
                 }
 
                 if !state
-                    .relay_video_frame_with_backpressure(streamer_id, frame_seq, w, h, jpeg_base64)
+                    .relay_binary_video_frame_with_backpressure(
+                        streamer_id,
+                        frame_seq,
+                        w as u16,
+                        h as u16,
+                        &jpeg_bytes,
+                    )
                     .await
                 {
                     break;
@@ -436,6 +491,7 @@ mod tests {
                 native_capture_stop: None,
                 sink_ready_seq: HashMap::new(),
                 last_chat_ms: 0,
+                last_sound_ms: 0,
             },
         );
 

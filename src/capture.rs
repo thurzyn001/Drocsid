@@ -34,6 +34,7 @@ mod win32 {
 
     pub const CURSOR_SHOWING: DWORD = 0x0000_0001;
     pub const DI_NORMAL: UINT = 0x0003;
+    pub const PW_RENDERFULLCONTENT: UINT = 0x0000_0002;
 
     #[repr(C)]
     #[derive(Clone, Copy, Default)]
@@ -109,6 +110,7 @@ mod win32 {
 
     pub type MonitorEnumProc =
         unsafe extern "system" fn(HMONITOR, HDC, *mut RECT, LPARAM) -> BOOL;
+    pub type WndEnumProc = unsafe extern "system" fn(HWND, LPARAM) -> BOOL;
 
     #[link(name = "user32")]
     extern "system" {
@@ -121,6 +123,7 @@ mod win32 {
         ) -> BOOL;
         pub fn GetMonitorInfoW(hmonitor: HMONITOR, lpmi: *mut MONITORINFOEXW) -> BOOL;
         pub fn GetDC(hwnd: HWND) -> HDC;
+        pub fn GetWindowDC(hwnd: HWND) -> HDC;
         pub fn ReleaseDC(hwnd: HWND, hdc: HDC) -> i32;
         pub fn GetCursorInfo(pci: *mut CURSORINFO) -> BOOL;
         pub fn DrawIconEx(
@@ -134,6 +137,13 @@ mod win32 {
             hbr_flicker_free_draw: *mut c_void,
             di_flags: UINT,
         ) -> BOOL;
+        pub fn EnumWindows(lp_enum_func: WndEnumProc, l_param: LPARAM) -> BOOL;
+        pub fn IsWindowVisible(hwnd: HWND) -> BOOL;
+        pub fn IsIconic(hwnd: HWND) -> BOOL;
+        pub fn GetWindowTextLengthW(hwnd: HWND) -> i32;
+        pub fn GetWindowTextW(hwnd: HWND, lp_string: *mut u16, n_max_count: i32) -> i32;
+        pub fn GetWindowRect(hwnd: HWND, lp_rect: *mut RECT) -> BOOL;
+        pub fn PrintWindow(hwnd: HWND, hdc_blt: HDC, n_flags: UINT) -> BOOL;
     }
 
     #[link(name = "gdi32")]
@@ -291,19 +301,24 @@ pub fn enumerate_monitors() -> Vec<MonitorRect> {
     }]
 }
 
-/// Captura um quadro bruto BGRA de um monitor via Win32 GDI (`BitBlt` + `GetDIBits`),
-/// redimensiona para a largura alvo mantendo a proporção e codifica em JPEG Base64.
-/// Espelha o pipeline `VideoFrameRgba` -> `SetVideoOutputSink` do `discord_voice.node`.
+/// Captura um quadro bruto BGRA de um monitor via Win32 GDI (`StretchBlt`/`BitBlt` + `GetDIBits`),
+/// retornando `(width, height, jpeg_bytes)` com reuso de buffers (`thread_local!`).
 #[cfg(windows)]
-pub fn capture_monitor_jpeg(
+pub fn capture_monitor_jpeg_bytes(
     monitor_index: usize,
     max_width: u32,
     quality: u8,
-) -> Result<(u32, u32, String), String> {
+) -> Result<(u32, u32, Vec<u8>), String> {
+    use std::cell::RefCell;
     use std::ffi::c_void;
     use std::mem::size_of;
     use std::ptr::null_mut;
     use win32::*;
+
+    thread_local! {
+        static BGRA_BUF: RefCell<Vec<u8>> = RefCell::new(Vec::new());
+        static RGB_BUF: RefCell<Vec<u8>> = RefCell::new(Vec::new());
+    }
 
     let monitors = enumerate_monitors();
     let monitor = monitors
@@ -407,22 +422,25 @@ pub fn capture_monitor_jpeg(
         let mut bmi = BITMAPINFO::default();
         bmi.bmi_header.bi_size = size_of::<BITMAPINFOHEADER>() as DWORD;
         bmi.bmi_header.bi_width = target_w as LONG;
-        // Altura negativa para buffer top-down (linha 0 no topo)
         bmi.bmi_header.bi_height = -(target_h as LONG);
         bmi.bmi_header.bi_planes = 1;
         bmi.bmi_header.bi_bit_count = 32;
         bmi.bmi_header.bi_compression = BI_RGB;
 
-        let mut bgra_buf = vec![0u8; (target_w as usize) * (target_h as usize) * 4];
-        let lines = GetDIBits(
-            mem_dc,
-            bmp,
-            0,
-            target_h,
-            bgra_buf.as_mut_ptr() as *mut c_void,
-            &mut bmi,
-            DIB_RGB_COLORS,
-        );
+        let needed_bgra = (target_w as usize) * (target_h as usize) * 4;
+        let lines = BGRA_BUF.with(|cell| {
+            let mut buf = cell.borrow_mut();
+            buf.resize(needed_bgra, 0);
+            GetDIBits(
+                mem_dc,
+                bmp,
+                0,
+                target_h,
+                buf.as_mut_ptr() as *mut c_void,
+                &mut bmi,
+                DIB_RGB_COLORS,
+            )
+        });
 
         SelectObject(mem_dc, old_obj);
         DeleteObject(bmp);
@@ -433,29 +451,39 @@ pub fn capture_monitor_jpeg(
             return Err("Falha ao extrair bits do bitmap (GetDIBits)".to_string());
         }
 
-        let rgb_buf = bgra_to_rgb(&bgra_buf);
-
         let mut jpeg_bytes = Vec::with_capacity((target_w * target_h) as usize / 2);
-        let encoder = Encoder::new(&mut jpeg_bytes, quality.clamp(20, 95));
-        encoder
-            .encode(
-                &rgb_buf,
-                target_w as u16,
-                target_h as u16,
-                ColorType::Rgb,
-            )
-            .map_err(|e| format!("Erro na codificação JPEG: {e}"))?;
+        let encode_res = BGRA_BUF.with(|b_cell| {
+            RGB_BUF.with(|r_cell| {
+                let bgra = b_cell.borrow();
+                let mut rgb = r_cell.borrow_mut();
+                bgra_to_rgb_into(&bgra, &mut rgb);
+                let encoder = Encoder::new(&mut jpeg_bytes, quality.clamp(20, 95));
+                encoder.encode(&rgb, target_w as u16, target_h as u16, ColorType::Rgb)
+            })
+        });
+        encode_res.map_err(|e| format!("Erro na codificação JPEG: {e}"))?;
 
-        Ok((target_w, target_h, BASE64.encode(&jpeg_bytes)))
+        Ok((target_w, target_h, jpeg_bytes))
     }
 }
 
-#[cfg(not(windows))]
+/// Versão Base64 de `capture_monitor_jpeg_bytes` (para miniaturas HTTP).
+#[cfg(windows)]
 pub fn capture_monitor_jpeg(
-    _monitor_index: usize,
+    monitor_index: usize,
     max_width: u32,
     quality: u8,
 ) -> Result<(u32, u32, String), String> {
+    let (w, h, bytes) = capture_monitor_jpeg_bytes(monitor_index, max_width, quality)?;
+    Ok((w, h, BASE64.encode(&bytes)))
+}
+
+#[cfg(not(windows))]
+pub fn capture_monitor_jpeg_bytes(
+    _monitor_index: usize,
+    max_width: u32,
+    quality: u8,
+) -> Result<(u32, u32, Vec<u8>), String> {
     let target_w = max_width.clamp(160, 1280);
     let target_h = (target_w * 9) / 16;
     let mut rgb_buf = vec![0u8; (target_w * target_h * 3) as usize];
@@ -472,20 +500,238 @@ pub fn capture_monitor_jpeg(
     encoder
         .encode(&rgb_buf, target_w as u16, target_h as u16, ColorType::Rgb)
         .map_err(|e| format!("Erro na codificação JPEG: {e}"))?;
-    Ok((target_w, target_h, BASE64.encode(&jpeg_bytes)))
+    Ok((target_w, target_h, jpeg_bytes))
 }
 
-/// Converte um buffer BGRA (32-bit do GDI) direto para RGB (24-bit) sem reamostragem.
+#[cfg(not(windows))]
+pub fn capture_monitor_jpeg(
+    monitor_index: usize,
+    max_width: u32,
+    quality: u8,
+) -> Result<(u32, u32, String), String> {
+    let (w, h, bytes) = capture_monitor_jpeg_bytes(monitor_index, max_width, quality)?;
+    Ok((w, h, BASE64.encode(&bytes)))
+}
+
+/// Enumera janelas visíveis capturáveis (T-3: suporte a captura de janela específica via PrintWindow).
 #[cfg(windows)]
-fn bgra_to_rgb(src_bgra: &[u8]) -> Vec<u8> {
+pub fn enumerate_capturable_windows() -> Vec<(usize, String, u32, u32)> {
+    use std::ffi::c_void;
+    use win32::*;
+
+    unsafe extern "system" fn enum_wnd(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        if IsWindowVisible(hwnd) == 0 || IsIconic(hwnd) != 0 {
+            return 1;
+        }
+        let len = GetWindowTextLengthW(hwnd);
+        if len <= 0 {
+            return 1;
+        }
+        let mut buf = vec![0u16; (len + 1) as usize];
+        let copied = GetWindowTextW(hwnd, buf.as_mut_ptr(), buf.len() as i32);
+        if copied <= 0 {
+            return 1;
+        }
+        let title = String::from_utf16_lossy(&buf[..copied as usize]).trim().to_string();
+        if title.is_empty() || title == "Program Manager" || title == "Windows Input Experience" {
+            return 1;
+        }
+        let mut rect = RECT::default();
+        if GetWindowRect(hwnd, &mut rect) == 0 {
+            return 1;
+        }
+        let w = (rect.right - rect.left).max(0) as u32;
+        let h = (rect.bottom - rect.top).max(0) as u32;
+        if w < 240 || h < 160 {
+            return 1;
+        }
+        let list = &mut *(lparam as *mut Vec<(usize, String, u32, u32)>);
+        list.push((hwnd as usize, title, w, h));
+        1
+    }
+
+    let mut windows: Vec<(usize, String, u32, u32)> = Vec::new();
+    unsafe {
+        EnumWindows(
+            enum_wnd,
+            (&mut windows as *mut Vec<(usize, String, u32, u32)>) as LPARAM,
+        );
+    }
+    let _ = std::ptr::null::<c_void>();
+    windows.truncate(8);
+    windows
+}
+
+/// Captura uma janela específica usando `PrintWindow(..., PW_RENDERFULLCONTENT)` (com fallback `BitBlt`).
+#[cfg(windows)]
+pub fn capture_window_jpeg_bytes(
+    hwnd_val: usize,
+    max_width: u32,
+    quality: u8,
+) -> Result<(u32, u32, Vec<u8>), String> {
+    use std::ffi::c_void;
+    use std::mem::size_of;
+    use std::ptr::null_mut;
+    use win32::*;
+
+    let hwnd = hwnd_val as HWND;
+    unsafe {
+        if IsWindowVisible(hwnd) == 0 {
+            return Err("Janela não está mais visível".to_string());
+        }
+        let mut rect = RECT::default();
+        if GetWindowRect(hwnd, &mut rect) == 0 {
+            return Err("Falha ao obter dimensões da janela".to_string());
+        }
+        let src_w = (rect.right - rect.left).max(1) as u32;
+        let src_h = (rect.bottom - rect.top).max(1) as u32;
+        let target_w = max_width.clamp(160, src_w);
+        let target_h = ((src_h as u64 * target_w as u64) / src_w as u64).max(90) as u32;
+
+        let win_dc = GetWindowDC(hwnd);
+        let ref_dc = if win_dc.is_null() { GetDC(null_mut()) } else { win_dc };
+        if ref_dc.is_null() {
+            return Err("Falha ao obter HDC da janela".to_string());
+        }
+
+        let full_dc = CreateCompatibleDC(ref_dc);
+        let full_bmp = CreateCompatibleBitmap(ref_dc, src_w as i32, src_h as i32);
+        let scaled_dc = CreateCompatibleDC(ref_dc);
+        let scaled_bmp = CreateCompatibleBitmap(ref_dc, target_w as i32, target_h as i32);
+        if full_dc.is_null() || full_bmp.is_null() || scaled_dc.is_null() || scaled_bmp.is_null() {
+            if !full_bmp.is_null() { DeleteObject(full_bmp); }
+            if !full_dc.is_null() { DeleteDC(full_dc); }
+            if !scaled_bmp.is_null() { DeleteObject(scaled_bmp); }
+            if !scaled_dc.is_null() { DeleteDC(scaled_dc); }
+            ReleaseDC(if win_dc.is_null() { null_mut() } else { hwnd }, ref_dc);
+            return Err("Falha ao alocar bitmaps de janela".to_string());
+        }
+
+        let old_full = SelectObject(full_dc, full_bmp);
+        let mut ok = PrintWindow(hwnd, full_dc, PW_RENDERFULLCONTENT);
+        if ok == 0 {
+            ok = BitBlt(full_dc, 0, 0, src_w as i32, src_h as i32, ref_dc, 0, 0, SRCCOPY);
+        }
+        if ok == 0 {
+            SelectObject(full_dc, old_full);
+            DeleteObject(full_bmp);
+            DeleteDC(full_dc);
+            DeleteObject(scaled_bmp);
+            DeleteDC(scaled_dc);
+            ReleaseDC(if win_dc.is_null() { null_mut() } else { hwnd }, ref_dc);
+            return Err("Falha ao capturar conteúdo da janela".to_string());
+        }
+
+        let old_scaled = SelectObject(scaled_dc, scaled_bmp);
+        SetStretchBltMode(scaled_dc, HALFTONE);
+        SetBrushOrgEx(scaled_dc, 0, 0, null_mut());
+        let st_ok = StretchBlt(
+            scaled_dc,
+            0,
+            0,
+            target_w as i32,
+            target_h as i32,
+            full_dc,
+            0,
+            0,
+            src_w as i32,
+            src_h as i32,
+            SRCCOPY,
+        );
+
+        let mut bmi = BITMAPINFO::default();
+        bmi.bmi_header.bi_size = size_of::<BITMAPINFOHEADER>() as DWORD;
+        bmi.bmi_header.bi_width = target_w as LONG;
+        bmi.bmi_header.bi_height = -(target_h as LONG);
+        bmi.bmi_header.bi_planes = 1;
+        bmi.bmi_header.bi_bit_count = 32;
+        bmi.bmi_header.bi_compression = BI_RGB;
+
+        let mut bgra_buf = vec![0u8; (target_w as usize) * (target_h as usize) * 4];
+        let lines = if st_ok != 0 {
+            GetDIBits(
+                scaled_dc,
+                scaled_bmp,
+                0,
+                target_h,
+                bgra_buf.as_mut_ptr() as *mut c_void,
+                &mut bmi,
+                DIB_RGB_COLORS,
+            )
+        } else {
+            0
+        };
+
+        SelectObject(scaled_dc, old_scaled);
+        DeleteObject(scaled_bmp);
+        DeleteDC(scaled_dc);
+        SelectObject(full_dc, old_full);
+        DeleteObject(full_bmp);
+        DeleteDC(full_dc);
+        ReleaseDC(if win_dc.is_null() { null_mut() } else { hwnd }, ref_dc);
+
+        if lines == 0 {
+            return Err("Falha ao extrair bits da janela".to_string());
+        }
+
+        let rgb_buf = bgra_to_rgb(&bgra_buf);
+        let mut jpeg_bytes = Vec::with_capacity((target_w * target_h) as usize / 2);
+        let encoder = Encoder::new(&mut jpeg_bytes, quality.clamp(20, 95));
+        encoder
+            .encode(&rgb_buf, target_w as u16, target_h as u16, ColorType::Rgb)
+            .map_err(|e| format!("Erro na codificação JPEG da janela: {e}"))?;
+
+        Ok((target_w, target_h, jpeg_bytes))
+    }
+}
+
+#[cfg(not(windows))]
+pub fn capture_window_jpeg_bytes(
+    _hwnd_val: usize,
+    max_width: u32,
+    quality: u8,
+) -> Result<(u32, u32, Vec<u8>), String> {
+    capture_monitor_jpeg_bytes(0, max_width, quality)
+}
+
+/// Captura monitor (`screen:<idx>:0`) ou janela (`window:<hwnd>:0`) em bytes JPEG brutos.
+pub fn capture_source_jpeg_bytes(
+    source_id: &str,
+    max_width: u32,
+    quality: u8,
+) -> Result<(u32, u32, Vec<u8>), String> {
+    if let Some(rest) = source_id.strip_prefix("window:") {
+        if let Some(hwnd_val) = rest.split(':').next().and_then(|s| s.parse::<usize>().ok()) {
+            return capture_window_jpeg_bytes(hwnd_val, max_width, quality);
+        }
+    }
+    let monitor_index = source_id
+        .split(':')
+        .nth(1)
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    capture_monitor_jpeg_bytes(monitor_index, max_width, quality)
+}
+
+/// Converte um buffer BGRA (32-bit do GDI) direto para RGB (24-bit) reutilizando o vetor de saída.
+#[cfg(windows)]
+fn bgra_to_rgb_into(src_bgra: &[u8], dst_rgb: &mut Vec<u8>) {
     let pixel_count = src_bgra.len() / 4;
-    let mut dst_rgb = Vec::with_capacity(pixel_count * 3);
+    dst_rgb.clear();
+    dst_rgb.reserve(pixel_count * 3);
     for px in src_bgra.chunks_exact(4) {
         dst_rgb.push(px[2]); // R
         dst_rgb.push(px[1]); // G
         dst_rgb.push(px[0]); // B
     }
-    dst_rgb
+}
+
+/// Converte um buffer BGRA (32-bit do GDI) direto para RGB (24-bit) sem reamostragem.
+#[cfg(windows)]
+fn bgra_to_rgb(src_bgra: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    bgra_to_rgb_into(src_bgra, &mut out);
+    out
 }
 
 /// Converte um buffer BGRA (32-bit do GDI) para RGB (24-bit) com amostragem rápida.
@@ -520,12 +766,12 @@ fn bgra_to_scaled_rgb(
     dst_rgb
 }
 
-/// Gera a lista de telas com miniaturas em tempo real.
+/// Gera a lista de telas e janelas visíveis com miniaturas em tempo real.
 /// Equivale a `?GetScreenPreviews@Discord@@QEAAX...` (ordinal 121 em `discord_voice.node`)
 /// e `getDesktopCaptureSources` (módulo `9425` em `core.asar`).
 pub fn get_screen_previews(thumb_width: u32) -> Vec<DesktopSourcePreview> {
     let monitors = enumerate_monitors();
-    monitors
+    let mut previews: Vec<DesktopSourcePreview> = monitors
         .into_iter()
         .map(|m| {
             let thumbnail_data_url = match capture_monitor_jpeg(m.index, thumb_width, 65) {
@@ -544,5 +790,28 @@ pub fn get_screen_previews(thumb_width: u32) -> Vec<DesktopSourcePreview> {
                 thumbnail_data_url,
             }
         })
-        .collect()
+        .collect();
+
+    #[cfg(windows)]
+    {
+        for (idx, (hwnd_val, title, w, h)) in enumerate_capturable_windows().into_iter().enumerate() {
+            let thumbnail_data_url = match capture_window_jpeg_bytes(hwnd_val, thumb_width, 60) {
+                Ok((_, _, bytes)) => format!("data:image/jpeg;base64,{}", BASE64.encode(&bytes)),
+                Err(_) => String::new(),
+            };
+            previews.push(DesktopSourcePreview {
+                id: format!("window:{hwnd_val}:0"),
+                monitor_index: 100 + idx,
+                name: format!("🪟 {title}"),
+                width: w,
+                height: h,
+                x: 0,
+                y: 0,
+                is_primary: false,
+                thumbnail_data_url,
+            });
+        }
+    }
+
+    previews
 }

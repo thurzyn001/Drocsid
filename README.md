@@ -23,11 +23,11 @@ Ele traz:
 3. Em poucos segundos, aparecerá o seu **Código de Convite** (ex.: `DROCSID-xxxx-xxxx`) e o link público HTTPS com a chave da sala (`#key=...`).
 4. Clique em **📋 Copiar** e envie para seus amigos no WhatsApp/Telegram.
 
-> **Dica de encerramento e logs:** para fechar o servidor e o túnel completamente quando terminar a call, use o botão **⏻ Encerrar App** na barra lateral (visível para o anfitrião). Os logs de execução e diagnóstico ficam salvos em `%LOCALAPPDATA%\Programs\Drocsid\drocsid.log`.
+> **Dica de bandeja do sistema, links `drocsid://` e logs:** ao abrir o app, um ícone na bandeja do Windows permite reabrir a janela ou encerrar o Drocsid completamente (ou clique em **⏻ Encerrar App**). Convites `drocsid://` abrem direto no app instalado, e você pode girar a chave da sala a qualquer momento clicando em **🔑**. Os logs (com rotação automática acima de 5 MB) ficam salvos em `%LOCALAPPDATA%\Programs\Drocsid\drocsid.log`.
 
 ### Passo 3 — Entrar na Sala do Amigo (De Outra Rede / Cidade)
 Seus amigos têm **duas opções**:
-- **Opção A (Pelo App Instalado)**: abrem o **Drocsid** instalado no PC deles, clicam em **🔗 Usar Código**, colam o código `DROCSID-xxxx-xxxx` ou o link HTTPS completo e clicam em **Conectar Agora**.
+- **Opção A (Pelo App Instalado)**: abrem o **Drocsid** instalado no PC deles (ou clicam em um link `drocsid://...`), clicam em **🔗 Usar Código**, colam o código `DROCSID-xxxx-xxxx` ou o link HTTPS completo e clicam em **Conectar Agora**.
 - **Opção B (Direto pelo Link)**: abrem o link `https://xxxx.trycloudflare.com/#key=...` diretamente no navegador.
 
 > **Requisito de HTTPS (Importante):** microfone e compartilhamento de tela (`getUserMedia` / `getDisplayMedia`) exigem **Contexto Seguro** no navegador (`https://` pelo túnel ou `localhost`). Não utilize URLs `http://IP-da-LAN` para voz ou Go Live — se usar a rede local sem túnel, apenas o host em `127.0.0.1` terá contexto seguro no navegador.
@@ -36,17 +36,22 @@ Seus amigos têm **duas opções**:
 
 ---
 
-## 2. Os 3 Motores de Compartilhamento de Tela ("Go Live")
+## 2. Os 3 Motores de Compartilhamento de Tela ("Go Live") e Recursos (v0.3.0)
 
 Ao clicar em **🖥️ Compartilhar Tela (Go Live)**, você pode escolher entre:
 
 1. **⚡ Modo 1: WebRTC + STUN/TURN (Até 60 FPS + Áudio do Sistema)**
    - Usa `getDisplayMedia` + servidores STUN públicos para transmitir tela inteira, janela de jogo ou aba em **720p/1080p/1440p a 30 ou 60 FPS** com áudio do sistema (`soundshare_loopback`).
    - Você pode configurar um servidor **TURN próprio** (botão **⚙️ TURN** na barra lateral) para redes com NAT restrito. Se a conexão ICE WebRTC falhar para um amigo, o Drocsid alterna automaticamente para o **Modo 2 (Relay Universal)** para que a transmissão continue.
-2. **🌐 Modo 2: Relay Universal Internet (Anti-CGNAT)**
-   - Alternativa para redes com UDP/CGNAT bloqueado: captura qualquer janela/tela e transmite os quadros JPEG pelo túnel seguro WSS com controle de **backpressure** (`SignalVideoOutputSinkReady`), sujeito à banda de upload do anfitrião (sem áudio do sistema neste modo).
+2. **🌐 Modo 2: Relay Universal Internet (Anti-CGNAT com Frames Binários + Qualidade Adaptativa)**
+   - Alternativa para redes com UDP bloqueado: transmite quadros JPEG em pacotes WebSocket binários (`DVP`/`DVF`) com ajuste automático de qualidade/largura conforme a fila da conexão, controle de **backpressure** (`SignalVideoOutputSinkReady`) e áudio do sistema via WebRTC quando disponível.
 3. **🦀 Modo 3: Motor Nativo em Rust (`discord_voice.node` Style)**
-   - Captura os monitores diretamente do processo Rust do anfitrião no Windows via `EnumDisplayMonitors` + `BitBlt` + `DrawIconEx` + `GetDIBits` ([`src/capture.rs`](src/capture.rs)) e entrega quadros com o protocolo `SignalVideoOutputSinkReady`.
+   - Captura **monitores inteiros ou janelas específicas** diretamente do processo Rust do anfitrião no Windows (`EnumDisplayMonitors`/`BitBlt` e `PrintWindow` com `PW_RENDERFULLCONTENT` em [`src/capture.rs`](src/capture.rs)) e entrega quadros binários com o protocolo `SignalVideoOutputSinkReady`.
+
+### Recursos Extras na v0.3.0
+- **⊞ Grade Multi-Stream (até 4 telas)**, **🎭 Modo Teatro** e divisória palco/chat arrastável.
+- **🎯 Ponteiro Laser compartilhado**, **📷 Webcam na chamada**, **🔊 Soundboard sintetizado** e **Ctrl+V** para enviar prints comprimidos no chat (além de `**negrito**`, `` `código` `` e atalhos `Ctrl+M` / `Ctrl+D`).
+- **🔑 Rotação de chave de sala**, botão de expulsar participante (anfitrião) e desinstalador com opção de manter ou apagar dados.
 
 ---
 

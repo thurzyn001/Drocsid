@@ -147,6 +147,23 @@ pub enum ClientMessage {
         target_id: Uuid,
         candidate: serde_json::Value,
     },
+    /// Medição de latência (Ping -> Pong)
+    Ping {
+        client_ts: u64,
+    },
+    /// Ponteiro laser compartilhado no palco (coordenadas normalizadas 0..1)
+    LaserPointer {
+        x_norm: f32,
+        y_norm: f32,
+    },
+    /// Efeito sonoro no Soundboard da sala
+    SoundEffect {
+        kind: String,
+    },
+    /// Expulsa um participante (somente anfitrião)
+    KickPeer {
+        target_id: Uuid,
+    },
 }
 
 /// Mensagens enviadas do servidor Rust para os clientes via WebSocket.
@@ -213,10 +230,94 @@ pub enum ServerMessage {
         from_id: Uuid,
         candidate: serde_json::Value,
     },
+    /// Resposta de latência
+    Pong {
+        client_ts: u64,
+    },
+    /// Ponteiro laser de um amigo sobre o palco
+    LaserPointer {
+        peer_id: Uuid,
+        username: String,
+        x_norm: f32,
+        y_norm: f32,
+    },
+    /// Efeito sonoro disparado na sala
+    SoundEffect {
+        peer_id: Uuid,
+        username: String,
+        kind: String,
+    },
+    /// Aviso de remoção pelo anfitrião
+    Kicked {
+        reason: String,
+    },
+    /// Quadro binário de vídeo (não serializado em JSON; enviado via `Message::Binary`)
+    #[serde(skip)]
+    BinaryVideoFrame(Vec<u8>),
     /// Notificação de erro
     Error {
         message: String,
     },
+}
+
+pub const CLIENT_BINARY_FRAME_MAGIC: &[u8; 4] = b"DVP\x01";
+pub const SERVER_BINARY_FRAME_MAGIC: &[u8; 4] = b"DVF\x01";
+
+/// Empacota um quadro JPEG enviado pelo cliente (`DVP\x01` + `frame_seq:u64` + `w:u16` + `h:u16` + JPEG).
+pub fn encode_client_binary_frame(
+    frame_seq: u64,
+    width: u16,
+    height: u16,
+    jpeg_bytes: &[u8],
+) -> Vec<u8> {
+    let mut out = Vec::with_capacity(16 + jpeg_bytes.len());
+    out.extend_from_slice(CLIENT_BINARY_FRAME_MAGIC);
+    out.extend_from_slice(&frame_seq.to_be_bytes());
+    out.extend_from_slice(&width.to_be_bytes());
+    out.extend_from_slice(&height.to_be_bytes());
+    out.extend_from_slice(jpeg_bytes);
+    out
+}
+
+/// Faz parse do quadro binário enviado pelo cliente.
+pub fn parse_client_binary_frame(buf: &[u8]) -> Option<(u64, u16, u16, &[u8])> {
+    if buf.len() <= 16 || &buf[..4] != CLIENT_BINARY_FRAME_MAGIC {
+        return None;
+    }
+    let frame_seq = u64::from_be_bytes(buf[4..12].try_into().ok()?);
+    let width = u16::from_be_bytes(buf[12..14].try_into().ok()?);
+    let height = u16::from_be_bytes(buf[14..16].try_into().ok()?);
+    Some((frame_seq, width, height, &buf[16..]))
+}
+
+/// Empacota um quadro JPEG enviado pelo servidor (`DVF\x01` + `streamer_id:16` + `frame_seq:u64` + `w:u16` + `h:u16` + JPEG).
+pub fn encode_server_binary_frame(
+    streamer_id: Uuid,
+    frame_seq: u64,
+    width: u16,
+    height: u16,
+    jpeg_bytes: &[u8],
+) -> Vec<u8> {
+    let mut out = Vec::with_capacity(32 + jpeg_bytes.len());
+    out.extend_from_slice(SERVER_BINARY_FRAME_MAGIC);
+    out.extend_from_slice(streamer_id.as_bytes());
+    out.extend_from_slice(&frame_seq.to_be_bytes());
+    out.extend_from_slice(&width.to_be_bytes());
+    out.extend_from_slice(&height.to_be_bytes());
+    out.extend_from_slice(jpeg_bytes);
+    out
+}
+
+/// Faz parse do quadro binário emitido pelo servidor.
+pub fn parse_server_binary_frame(buf: &[u8]) -> Option<(Uuid, u64, u16, u16, &[u8])> {
+    if buf.len() <= 32 || &buf[..4] != SERVER_BINARY_FRAME_MAGIC {
+        return None;
+    }
+    let streamer_id = Uuid::from_slice(&buf[4..20]).ok()?;
+    let frame_seq = u64::from_be_bytes(buf[20..28].try_into().ok()?);
+    let width = u16::from_be_bytes(buf[28..30].try_into().ok()?);
+    let height = u16::from_be_bytes(buf[30..32].try_into().ok()?);
+    Some((streamer_id, frame_seq, width, height, &buf[32..]))
 }
 
 #[cfg(test)]
@@ -250,5 +351,20 @@ mod tests {
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains(r#""type":"welcome""#));
         assert!(json.contains(r#""is_host":false"#));
+    }
+
+    #[test]
+    fn binary_frame_packet_roundtrip() {
+        let client_pkt = encode_client_binary_frame(42, 1280, 720, b"\xff\xd8\xff");
+        let (seq, w, h, payload) = parse_client_binary_frame(&client_pkt).unwrap();
+        assert_eq!((seq, w, h, payload), (42, 1280, 720, &b"\xff\xd8\xff"[..]));
+
+        let sid = Uuid::new_v4();
+        let server_pkt = encode_server_binary_frame(sid, 99, 1920, 1080, b"jpegdata");
+        let (parsed_id, s_seq, s_w, s_h, s_payload) = parse_server_binary_frame(&server_pkt).unwrap();
+        assert_eq!(
+            (parsed_id, s_seq, s_w, s_h, s_payload),
+            (sid, 99, 1920, 1080, &b"jpegdata"[..])
+        );
     }
 }

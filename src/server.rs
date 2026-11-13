@@ -38,6 +38,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/tunnel/status", get(get_tunnel_status))
         .route("/api/tunnel/start", post(start_tunnel_handler))
         .route("/api/tunnel/stop", post(stop_tunnel_handler))
+        .route("/api/room/rotate-key", post(rotate_room_key_handler))
         .route("/api/shutdown", post(shutdown_handler))
         .route("/ws", get(ws_handler))
         .with_state(state)
@@ -93,6 +94,16 @@ async fn stop_tunnel_handler(State(state): State<Arc<AppState>>, headers: Header
     Json(state.tunnel.stop_tunnel().await).into_response()
 }
 
+/// Regenera a chave secreta da sala (revogando links/códigos antigos) — U-4.
+async fn rotate_room_key_handler(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
+    if !state.secrets.is_host_request(&headers) {
+        return unauthorized();
+    }
+    let new_key = state.secrets.rotate_room_key();
+    let status = state.tunnel.update_room_key(new_key).await;
+    Json(status).into_response()
+}
+
 async fn shutdown_handler(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
     if !state.secrets.is_host_request(&headers) {
         return unauthorized();
@@ -143,9 +154,18 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
 
     let send_task = tokio::spawn(async move {
         while let Some(server_msg) = rx.recv().await {
-            if let Ok(json_text) = serde_json::to_string(&server_msg) {
-                if ws_sender.send(Message::Text(json_text)).await.is_err() {
-                    break;
+            match server_msg {
+                ServerMessage::BinaryVideoFrame(bytes) => {
+                    if ws_sender.send(Message::Binary(bytes)).await.is_err() {
+                        break;
+                    }
+                }
+                other => {
+                    if let Ok(json_text) = serde_json::to_string(&other) {
+                        if ws_sender.send(Message::Text(json_text)).await.is_err() {
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -173,6 +193,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
                 native_capture_stop: None,
                 sink_ready_seq: HashMap::new(),
                 last_chat_ms: 0,
+                last_sound_ms: 0,
             },
         );
     }
@@ -188,6 +209,18 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
     while let Some(Ok(msg)) = ws_receiver.next().await {
         let text = match msg {
             Message::Text(t) => t,
+            Message::Binary(bytes) => {
+                if let Some((frame_seq, width, height, jpeg_bytes)) =
+                    crate::protocol::parse_client_binary_frame(&bytes)
+                {
+                    state
+                        .relay_binary_video_frame_with_backpressure(
+                            peer_id, frame_seq, width, height, jpeg_bytes,
+                        )
+                        .await;
+                }
+                continue;
+            }
             Message::Close(_) => break,
             _ => continue,
         };
@@ -345,12 +378,17 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
                     }
                 };
 
+                let max_len = if trimmed.starts_with("[drocsid-img]data:image/") {
+                    200_000
+                } else {
+                    2000
+                };
                 let entry = ChatEntry {
                     id: Uuid::new_v4(),
                     peer_id,
                     username,
                     room: room.clone(),
-                    text: trimmed.chars().take(1200).collect(),
+                    text: trimmed.chars().take(max_len).collect(),
                     timestamp_ms: now_ms(),
                     is_system: false,
                 };
@@ -547,6 +585,92 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
                         ServerMessage::RtcIceCandidate { from_id: peer_id, candidate },
                     )
                     .await;
+            }
+
+            ClientMessage::Ping { client_ts } => {
+                let _ = tx.try_send(ServerMessage::Pong { client_ts });
+            }
+
+            ClientMessage::LaserPointer { x_norm, y_norm } => {
+                let sender_info = {
+                    let peers = state.peers.read().await;
+                    peers
+                        .get(&peer_id)
+                        .map(|p| (p.info.room.clone(), p.info.username.clone()))
+                };
+                if let Some((room, username)) = sender_info {
+                    state
+                        .broadcast_to_room(
+                            &room,
+                            ServerMessage::LaserPointer {
+                                peer_id,
+                                username,
+                                x_norm: x_norm.clamp(0.0, 1.0),
+                                y_norm: y_norm.clamp(0.0, 1.0),
+                            },
+                            None,
+                        )
+                        .await;
+                }
+            }
+
+            ClientMessage::SoundEffect { kind } => {
+                let now = now_ms();
+                let sender_info = {
+                    let mut peers = state.peers.write().await;
+                    match peers.get_mut(&peer_id) {
+                        Some(p) if now.saturating_sub(p.last_sound_ms) >= 500 => {
+                            p.last_sound_ms = now;
+                            Some((p.info.room.clone(), p.info.username.clone()))
+                        }
+                        _ => None,
+                    }
+                };
+                if let Some((room, username)) = sender_info {
+                    let safe_kind: String = kind.trim().chars().take(24).collect();
+                    if !safe_kind.is_empty() {
+                        state
+                            .broadcast_to_room(
+                                &room,
+                                ServerMessage::SoundEffect {
+                                    peer_id,
+                                    username,
+                                    kind: safe_kind,
+                                },
+                                None,
+                            )
+                            .await;
+                    }
+                }
+            }
+
+            ClientMessage::KickPeer { target_id } => {
+                if !is_host || target_id == peer_id {
+                    continue;
+                }
+                state.stop_native_capture_for_peer(target_id).await;
+                let kicked_peer = {
+                    let mut peers = state.peers.write().await;
+                    peers.remove(&target_id)
+                };
+                if let Some(target) = kicked_peer {
+                    let _ = target.tx.try_send(ServerMessage::Kicked {
+                        reason: "Você foi removido da sala pelo anfitrião.".to_string(),
+                    });
+                    state
+                        .broadcast_to_room(
+                            &target.info.room,
+                            ServerMessage::PeerLeft { peer_id: target_id },
+                            Some(target_id),
+                        )
+                        .await;
+                    state
+                        .push_system_message(
+                            &target.info.room,
+                            format!("🚫 {} foi removido da sala pelo anfitrião.", target.info.username),
+                        )
+                        .await;
+                }
             }
         }
     }

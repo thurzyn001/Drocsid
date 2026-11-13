@@ -5,6 +5,7 @@
 //!   miniaturas de monitores, controle do túnel e configurações.
 //! * `room_key`: vai dentro do convite. Sem ela o WebSocket da sala é recusado.
 
+use std::sync::{Arc, RwLock};
 use axum::http::HeaderMap;
 use uuid::Uuid;
 
@@ -17,7 +18,7 @@ pub enum Role {
 #[derive(Debug, Clone)]
 pub struct Secrets {
     pub host_token: String,
-    pub room_key: String,
+    pub room_key: Arc<RwLock<String>>,
 }
 
 impl Secrets {
@@ -26,15 +27,27 @@ impl Secrets {
             // 2 x 122 bits aleatórios (getrandom do SO via uuid v4)
             host_token: format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple()),
             // 122 bits aleatórios, 32 caracteres hex
-            room_key: Uuid::new_v4().simple().to_string(),
+            room_key: Arc::new(RwLock::new(Uuid::new_v4().simple().to_string())),
         }
     }
 
     pub fn from_parts(host_token: impl Into<String>, room_key: impl Into<String>) -> Self {
         Self {
             host_token: host_token.into(),
-            room_key: room_key.into(),
+            room_key: Arc::new(RwLock::new(room_key.into())),
         }
+    }
+
+    pub fn current_room_key(&self) -> String {
+        self.room_key.read().map(|g| g.clone()).unwrap_or_default()
+    }
+
+    pub fn rotate_room_key(&self) -> String {
+        let new_key = Uuid::new_v4().simple().to_string();
+        if let Ok(mut g) = self.room_key.write() {
+            *g = new_key.clone();
+        }
+        new_key
     }
 
     /// Decide o papel de uma conexão WebSocket a partir dos parâmetros `?host=` / `?key=`.
@@ -44,8 +57,9 @@ impl Secrets {
                 return Some(Role::Host);
             }
         }
+        let active_key = self.current_room_key();
         if let Some(k) = key {
-            if constant_time_eq(k, &self.room_key) {
+            if constant_time_eq(k, &active_key) {
                 return Some(Role::Guest);
             }
         }
@@ -82,9 +96,14 @@ mod tests {
         let a = Secrets::generate();
         let b = Secrets::generate();
         assert_ne!(a.host_token, b.host_token);
-        assert_ne!(a.room_key, b.room_key);
+        assert_ne!(a.current_room_key(), b.current_room_key());
         assert_eq!(a.host_token.len(), 64);
-        assert_eq!(a.room_key.len(), 32);
+        assert_eq!(a.current_room_key().len(), 32);
+        let old = a.current_room_key();
+        let rotated = a.rotate_room_key();
+        assert_ne!(old, rotated);
+        assert_eq!(a.authorize(None, Some(&old)), None);
+        assert_eq!(a.authorize(None, Some(&rotated)), Some(Role::Guest));
     }
 
     #[test]

@@ -65,6 +65,13 @@ async fn host_only_routes_reject_guests() {
         .body(Body::empty())
         .unwrap();
     assert_eq!(status(shutdown_no_token).await, StatusCode::UNAUTHORIZED);
+
+    let rotate_no_token = Request::builder()
+        .method("POST")
+        .uri("/api/room/rotate-key")
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(status(rotate_no_token).await, StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -73,6 +80,13 @@ async fn host_token_unlocks_tunnel_status() {
         status(get_as_host("/api/tunnel/status", HOST)).await,
         StatusCode::OK
     );
+    let rotate_host = Request::builder()
+        .method("POST")
+        .uri("/api/room/rotate-key")
+        .header("authorization", format!("Bearer {HOST}"))
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(status(rotate_host).await, StatusCode::OK);
 }
 
 #[tokio::test]

@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod tray;
+
 use std::{
     fs::OpenOptions,
     io::{self, ErrorKind},
@@ -11,17 +13,33 @@ use std::{
 use drocsid::{build_router, security::Secrets, AppState};
 use tracing::{info, warn};
 
+fn data_dir() -> PathBuf {
+    std::env::var("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| std::env::temp_dir())
+        .join("Programs")
+        .join("Drocsid")
+}
+
+fn session_url_path() -> Option<PathBuf> {
+    Some(data_dir().join("session.url"))
+}
+
 fn init_logging() {
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "drocsid=info".into());
 
-    let log_dir = std::env::var("LOCALAPPDATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| std::env::temp_dir())
-        .join("Programs")
-        .join("Drocsid");
+    let log_dir = data_dir();
     let _ = std::fs::create_dir_all(&log_dir);
     let log_path = log_dir.join("drocsid.log");
+
+    // B-5: rotaciona log se ultrapassar 5 MB
+    if let Ok(meta) = std::fs::metadata(&log_path) {
+        if meta.len() > 5 * 1024 * 1024 {
+            let old_path = log_dir.join("drocsid.old.log");
+            let _ = std::fs::rename(&log_path, &old_path);
+        }
+    }
 
     if let Ok(file) = OpenOptions::new().create(true).append(true).open(&log_path) {
         let writer = Mutex::new(file);
@@ -47,6 +65,17 @@ async fn main() {
     let auto_tunnel = args.iter().any(|a| a == "--tunnel");
     // P0-3: por padrão só escuta em 127.0.0.1 (o túnel conecta por aí). `--lan` expõe na rede local.
     let lan = args.iter().any(|a| a == "--lan");
+    // I-3: suporte ao protocolo drocsid://DROCSID-...
+    let protocol_invite: Option<String> = args
+        .iter()
+        .find(|a| a.to_ascii_lowercase().starts_with("drocsid://"))
+        .map(|a| {
+            a[10..]
+                .trim_matches('/')
+                .trim()
+                .to_string()
+        })
+        .filter(|s| !s.is_empty());
 
     let port: u16 = std::env::var("DROCSID_PORT")
         .ok()
@@ -70,7 +99,20 @@ async fn main() {
         Ok(l) => l,
         Err(err) => {
             if err.kind() == ErrorKind::AddrInUse {
-                warn!("Porta {port} já está em uso ({err}). Encerre a instância anterior ou use --port <outra_porta>.");
+                warn!("Porta {port} já está em uso ({err}). Tentando reabrir janela da instância ativa.");
+                if !headless {
+                    if let Some(sess_path) = session_url_path() {
+                        if let Ok(saved_url) = std::fs::read_to_string(&sess_path) {
+                            let mut target_url = saved_url.trim().to_string();
+                            if !target_url.is_empty() {
+                                if let Some(ref inv) = protocol_invite {
+                                    target_url.push_str(&format!("&invite={inv}"));
+                                }
+                                open_desktop_window(&target_url);
+                            }
+                        }
+                    }
+                }
             } else {
                 warn!("Não foi possível abrir a porta {port}: {err}");
             }
@@ -80,6 +122,13 @@ async fn main() {
 
     let secrets = Secrets::generate();
     let host_url = format!("http://127.0.0.1:{port}/#host={}", secrets.host_token);
+    if let Some(sess_path) = session_url_path() {
+        let _ = std::fs::write(&sess_path, &host_url);
+    }
+    let launch_url = match protocol_invite {
+        Some(ref inv) => format!("{host_url}&invite={inv}"),
+        None => host_url.clone(),
+    };
     let state = AppState::new(port, secrets);
     state.load_persisted_chat().await;
 
@@ -94,13 +143,19 @@ async fn main() {
     if lan {
         info!(
             "Modo LAN: convidados usam http://<seu-ip>:{port}/#key={} (sem HTTPS, mic/tela não funcionam para eles)",
-            state.secrets.room_key
+            state.secrets.current_room_key()
         );
     }
     if headless {
         info!("Modo headless. Janela do anfitrião: {host_url}");
     } else {
-        let url = host_url.clone();
+        tray::spawn_system_tray(
+            host_url.clone(),
+            state.clone(),
+            tokio::runtime::Handle::current(),
+            session_url_path(),
+        );
+        let url = launch_url;
         tokio::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_millis(350)).await;
             open_desktop_window(&url);
@@ -113,7 +168,7 @@ async fn main() {
 }
 
 /// Abre o Drocsid numa janela de aplicativo (Edge/Chrome `--app`), sem barras de navegador.
-fn open_desktop_window(url: &str) {
+pub(crate) fn open_desktop_window(url: &str) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;

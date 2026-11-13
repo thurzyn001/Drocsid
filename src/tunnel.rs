@@ -42,7 +42,7 @@ pub struct TunnelManager {
     pub status: RwLock<TunnelStatus>,
     pub child: RwLock<Option<Child>>,
     pub port: u16,
-    pub room_key: String,
+    pub room_key: RwLock<String>,
 }
 
 impl TunnelManager {
@@ -51,8 +51,24 @@ impl TunnelManager {
             status: RwLock::new(TunnelStatus::default()),
             child: RwLock::new(None),
             port,
-            room_key,
+            room_key: RwLock::new(room_key),
         })
+    }
+
+    pub async fn update_room_key(&self, new_key: String) -> TunnelStatus {
+        *self.room_key.write().await = new_key.clone();
+        let mut st = self.status.write().await;
+        if st.active {
+            if let Some(url) = st.public_url.as_ref() {
+                let inv = Invite {
+                    origin: url.trim_end_matches('/').to_string(),
+                    key: new_key,
+                };
+                st.invite_code = Some(inv.code());
+                st.invite_link = Some(inv.link());
+            }
+        }
+        st.clone()
     }
 
     pub async fn get_status(&self) -> TunnelStatus {
@@ -88,7 +104,7 @@ impl TunnelManager {
             st.invite_code = None;
             st.invite_link = None;
             st.status_message =
-                "Preparando túnel criptografado na Internet (aguarde ~3 a 6 segundos)...".to_string();
+                "Verificando/baixando motor Cloudflare (~35 MB na 1ª vez)...".to_string();
         }
 
         let manager = self.clone();
@@ -112,7 +128,7 @@ impl TunnelManager {
         self.get_status().await
     }
 
-    async fn launch_cloudflared(&self, bin_path: PathBuf) -> Result<(), String> {
+    async fn launch_cloudflared(self: &Arc<Self>, bin_path: PathBuf) -> Result<(), String> {
         info!("Iniciando Cloudflare Quick Tunnel usando {:?}", bin_path);
         {
             let mut st = self.status.write().await;
@@ -151,17 +167,39 @@ impl TunnelManager {
         let mut reader = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             if let Some(url) = extract_https_url(&line, ".trycloudflare.com") {
-                let inv = Invite { origin: url.trim_end_matches('/').to_string(), key: self.room_key.clone() };
+                let current_key = self.room_key.read().await.clone();
+                let inv = Invite {
+                    origin: url.trim_end_matches('/').to_string(),
+                    key: current_key,
+                };
                 let invite = inv.code();
                 let invite_link = inv.link();
                 info!("Túnel público ativo: {}", url);
-                let mut st = self.status.write().await;
-                st.active = true;
-                st.provider = "Cloudflare Quick Tunnel".to_string();
-                st.public_url = Some(url.clone());
-                st.invite_code = Some(invite);
-                st.invite_link = Some(invite_link);
-                st.status_message = format!("Online na Internet! Envie o convite aos amigos.");
+                {
+                    let mut st = self.status.write().await;
+                    st.active = true;
+                    st.provider = "Cloudflare Quick Tunnel".to_string();
+                    st.public_url = Some(url.clone());
+                    st.invite_code = Some(invite);
+                    st.invite_link = Some(invite_link);
+                    st.status_message = "Online na Internet! Envie o convite aos amigos.".to_string();
+                }
+
+                // B-2: continua drenando stderr para evitar Broken pipe e detectar queda do túnel
+                let mgr = self.clone();
+                let active_url = url;
+                tokio::spawn(async move {
+                    while let Ok(Some(_)) = reader.next_line().await {}
+                    let mut st = mgr.status.write().await;
+                    if st.active && st.public_url.as_deref() == Some(active_url.as_str()) {
+                        warn!("Processo cloudflared encerrou inesperadamente.");
+                        st.active = false;
+                        st.provider = "error".to_string();
+                        st.status_message =
+                            "O túnel caiu inesperadamente. Clique em 'Gerar Convite' para reconectar."
+                                .to_string();
+                    }
+                });
                 return Ok(());
             }
         }
@@ -213,7 +251,7 @@ impl TunnelManager {
 
         *self.child.write().await = Some(child);
 
-        let room_key = self.room_key.clone();
+        let room_key = self.room_key.read().await.clone();
         let read_fut = async {
             let mut reader = BufReader::new(stdout).lines();
             while let Ok(Some(line)) = reader.next_line().await {

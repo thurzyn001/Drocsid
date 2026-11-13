@@ -1,6 +1,6 @@
 ﻿[package]
 name = "drocsid"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "VersÃ£o simplificada do Discord em Rust com voz, chat e compartilhamento de tela (WebRTC + Captura Nativa inspirada no discord_voice.node)"
 

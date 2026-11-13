@@ -10,7 +10,7 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Instalador do Drocsid")]
 [assembly: AssemblyDescription("Instalador oficial do Drocsid - Chat, Voz & Compartilhamento de Tela")]
 [assembly: AssemblyProduct("Drocsid")]
-[assembly: AssemblyVersion("0.2.0.0")]
+[assembly: AssemblyVersion("0.3.0.0")]
 
 namespace DrocsidInstaller
 {
@@ -27,7 +27,7 @@ namespace DrocsidInstaller
 
         public SetupForm()
         {
-            this.Text = "Instalador do Drocsid v0.2.0";
+            this.Text = "Instalador do Drocsid v0.3.0";
             this.Size = new Size(520, 390);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -344,13 +344,34 @@ namespace DrocsidInstaller
                     if (key != null)
                     {
                         key.SetValue("DisplayName", "Drocsid — Chat, Voz & Go Live");
-                        key.SetValue("DisplayVersion", "0.2.0");
+                        key.SetValue("DisplayVersion", "0.3.0");
                         key.SetValue("Publisher", "Drocsid Open Project");
                         key.SetValue("DisplayIcon", exePath);
                         key.SetValue("InstallLocation", installDir);
                         key.SetValue("UninstallString", "\"" + uninstallerPath + "\" --uninstall");
                         key.SetValue("NoModify", 1, RegistryValueKind.DWord);
                         key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
+                    }
+                }
+            }
+            catch { }
+
+            try
+            {
+                using (RegistryKey proto = Registry.CurrentUser.CreateSubKey(@"Software\Classes\drocsid"))
+                {
+                    if (proto != null)
+                    {
+                        proto.SetValue("", "URL:Drocsid Invite Protocol");
+                        proto.SetValue("URL Protocol", "");
+                        using (RegistryKey iconKey = proto.CreateSubKey("DefaultIcon"))
+                        {
+                            if (iconKey != null) iconKey.SetValue("", "\"" + exePath + "\",0");
+                        }
+                        using (RegistryKey cmdKey = proto.CreateSubKey(@"shell\open\command"))
+                        {
+                            if (cmdKey != null) cmdKey.SetValue("", "\"" + exePath + "\" \"%1\"");
+                        }
                     }
                 }
             }
@@ -366,6 +387,13 @@ namespace DrocsidInstaller
                 MessageBoxIcon.Question
             );
             if (confirm != DialogResult.Yes) return;
+
+            var purgeData = MessageBox.Show(
+                "Deseja apagar também seu histórico de chat, logs e perfil do navegador salvos?",
+                "Manter ou apagar dados",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question
+            );
 
             foreach (var proc in Process.GetProcessesByName("drocsid"))
             {
@@ -390,19 +418,43 @@ namespace DrocsidInstaller
             }
             catch { }
 
+            try
+            {
+                Registry.CurrentUser.DeleteSubKeyTree(@"Software\Classes\drocsid", false);
+            }
+            catch { }
+
             string installDir = Path.GetDirectoryName(Application.ExecutablePath);
+            string uninstallerExe = installDir != null ? Path.Combine(installDir, "Uninstall-Drocsid.exe") : null;
             if (!string.IsNullOrEmpty(installDir)
                 && Directory.Exists(installDir)
-                && File.Exists(Path.Combine(installDir, "Uninstall-Drocsid.exe")))
+                && File.Exists(uninstallerExe))
             {
                 try
                 {
-                    var psi = new ProcessStartInfo("cmd.exe", "/C timeout /t 2 /nobreak >nul & rmdir /s /q \"" + installDir + "\"")
+                    if (purgeData == DialogResult.Yes)
                     {
-                        CreateNoWindow = true,
-                        UseShellExecute = false
-                    };
-                    Process.Start(psi);
+                        var psi = new ProcessStartInfo("cmd.exe", "/C timeout /t 2 /nobreak >nul & rmdir /s /q \"" + installDir + "\"")
+                        {
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        };
+                        Process.Start(psi);
+                    }
+                    else
+                    {
+                        foreach (string fname in new[] { "drocsid.exe", "drocsid.ico", "cloudflared.exe", "session.url" })
+                        {
+                            string p = Path.Combine(installDir, fname);
+                            if (File.Exists(p)) try { File.Delete(p); } catch { }
+                        }
+                        var psi = new ProcessStartInfo("cmd.exe", "/C timeout /t 2 /nobreak >nul & del /f /q \"" + uninstallerExe + "\"")
+                        {
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        };
+                        Process.Start(psi);
+                    }
                 }
                 catch { }
             }
