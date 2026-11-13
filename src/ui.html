@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Drocsid — Chat, Voz & Go Live (Internet & P2P)</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%235865F2'/><text x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Segoe UI,sans-serif' font-weight='bold'>D</text></svg>" />
   <style>
@@ -33,6 +33,8 @@
       background: var(--bg-primary);
       color: var(--text-normal);
       height: 100vh;
+      height: 100dvh;
+      width: 100vw;
       display: flex;
       overflow: hidden;
     }
@@ -823,14 +825,187 @@
       display: block;
       border: 1px solid var(--border);
     }
+
+    /* v0.3.1: Suporte completo para navegadores desktop & celular (Drawer, Modos de Visão, Autoplay Banner) */
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.58);
+      z-index: 110;
+    }
+    .sidebar-backdrop.open {
+      display: block;
+    }
+    .mobile-menu-btn,
+    .sidebar-close-btn {
+      display: none;
+    }
+    .view-switcher {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .view-switcher .btn.active-view {
+      background: var(--brand);
+      color: #fff;
+    }
+    .main-area.view-stage .stage-container {
+      height: auto !important;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .main-area.view-stage .stage-resizer,
+    .main-area.view-stage .chat-container {
+      display: none;
+    }
+    .main-area.view-chat .stage-container,
+    .main-area.view-chat .stage-resizer {
+      display: none;
+    }
+    .main-area.view-chat .chat-container {
+      flex: 1 1 auto;
+    }
+
+    .unlock-audio-banner {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 25;
+      background: #f0b232;
+      color: #111214;
+      border: none;
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+      max-width: 92%;
+      text-align: center;
+    }
+
+    .mobile-action-bar {
+      display: none;
+      background: var(--bg-tertiary);
+      border-top: 1px solid var(--border);
+      padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+      gap: 6px;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+    .mobile-action-bar .btn {
+      flex: 1;
+      padding: 9px 4px;
+      font-size: 11.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 900px) {
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(86vw, 315px);
+        z-index: 120;
+        transform: translateX(-105%);
+        transition: transform 0.2s ease;
+        box-shadow: 12px 0 36px rgba(0, 0, 0, 0.6);
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+      .mobile-menu-btn,
+      .sidebar-close-btn {
+        display: inline-flex;
+      }
+      .topbar {
+        height: auto;
+        min-height: 48px;
+        padding: 6px 10px;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .topbar-left {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .engine-pill {
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .telemetry-hud {
+        width: 100%;
+        font-size: 10.5px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .stage-container {
+        height: 40%;
+        min-height: 170px;
+      }
+      .stage-header {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 6px 8px;
+      }
+      .stage-header > div:last-child {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+      .stage-resizer {
+        display: none;
+      }
+      .stage-viewport video,
+      .stage-viewport canvas {
+        width: 100%;
+        height: 100%;
+      }
+      .messages {
+        padding: 10px 12px;
+      }
+      .chat-input-bar {
+        padding: 8px 10px;
+        gap: 6px;
+      }
+      .chat-input,
+      .username-input,
+      .field-group input,
+      .field-group select {
+        font-size: 16px;
+      }
+      .mobile-action-bar {
+        display: flex;
+      }
+      .mode-selector,
+      .settings-row {
+        grid-template-columns: 1fr;
+      }
+      .modal {
+        width: 96vw !important;
+        max-height: 92dvh;
+      }
+    }
   </style>
 </head>
 <body>
+  <div id="sidebarBackdrop" class="sidebar-backdrop" onclick="toggleMobileSidebar(false)"></div>
   <!-- Barra Lateral -->
-  <aside class="sidebar">
+  <aside id="sidebar" class="sidebar">
     <div class="server-header">
       <span>Drocsid</span>
-      <span class="server-badge" id="connectionBadge">LOCAL</span>
+      <span style="display:flex;align-items:center;gap:6px;">
+        <span class="server-badge" id="connectionBadge">LOCAL</span>
+        <button class="btn sidebar-close-btn" style="padding: 3px 8px;" onclick="toggleMobileSidebar(false)" title="Fechar menu">✕</button>
+      </span>
     </div>
 
     <!-- Cartão de Conexão na Internet (Jogar fora da mesma rede sem VPN) -->
@@ -893,13 +1068,19 @@
   </aside>
 
   <!-- Área Principal -->
-  <main class="main-area">
+  <main id="mainArea" class="main-area">
     <header class="topbar">
       <div class="topbar-left">
+        <button class="btn mobile-menu-btn" style="padding: 5px 9px;" onclick="toggleMobileSidebar(true)">☰ Salas</button>
         <span class="room-title" id="currentRoomLabel">#geral</span>
         <span class="engine-pill" id="activeServerPill">Servidor Local</span>
       </div>
       <div class="telemetry-hud" id="telemetryHud">
+        <div class="view-switcher">
+          <button id="btnViewSplit" class="btn active-view" style="padding: 3px 7px; font-size: 11px;" onclick="setLayoutViewMode('split')" title="Mostrar Palco e Chat">📐 Dividido</button>
+          <button id="btnViewStage" class="btn" style="padding: 3px 7px; font-size: 11px;" onclick="setLayoutViewMode('stage')" title="Focar apenas no Vídeo">🎬 Palco</button>
+          <button id="btnViewChat" class="btn" style="padding: 3px 7px; font-size: 11px;" onclick="setLayoutViewMode('chat')" title="Focar apenas no Chat">💬 Chat</button>
+        </div>
         <span id="hudStatus">Pronto</span>
       </div>
     </header>
@@ -926,7 +1107,8 @@
       <div id="webcamStrip" class="webcam-strip"></div>
 
       <div class="stage-viewport" id="stageViewport">
-        <video id="stageVideo" autoplay playsinline></video>
+        <button id="btnUnlockAudio" class="unlock-audio-banner" style="display: none;" onclick="unlockBrowserAudio()">🔇 Som bloqueado pelo navegador — Toque aqui para ativar o áudio</button>
+        <video id="stageVideo" autoplay playsinline webkit-playsinline></video>
         <canvas id="stageCanvas"></canvas>
         <div id="stageGrid" class="stage-grid"></div>
         <div id="laserOverlay" class="laser-overlay"></div>
@@ -934,7 +1116,7 @@
           <h3>Compartilhamento de Tela ("Go Live") — Local & Internet</h3>
           <p>
             • Para chamar amigos de <strong>outras redes/cidades sem VPN</strong>, clique em <strong>📡 Gerar Convite</strong> na barra esquerda e envie o código gerado.<br/>
-            • Clique em <strong>🖥️ Compartilhar Tela (Go Live)</strong> para transmitir sua tela ou jogo em até 60 FPS!
+            • Clique em <strong>🖥️ Compartilhar Tela (Go Live)</strong> para transmitir sua tela, janela ou câmera!
           </p>
         </div>
       </div>
@@ -957,6 +1139,15 @@
         <button type="submit" class="btn" style="background: var(--brand); padding: 0 16px;">Enviar</button>
       </form>
     </section>
+
+    <!-- Barra Rápida para Celular -->
+    <nav id="mobileActionBar" class="mobile-action-bar">
+      <button type="button" class="btn" onclick="toggleMobileSidebar(true)">☰ Salas</button>
+      <button type="button" id="mBtnVoice" class="btn" onclick="toggleVoiceConnection()">🎙️ Voz</button>
+      <button type="button" id="mBtnMute" class="btn" onclick="toggleMute()">🎤 Mute</button>
+      <button type="button" id="mBtnWebcam" class="btn" onclick="toggleWebcam()">📷 Cam</button>
+      <button type="button" id="mBtnGoLive" class="btn" style="background: var(--brand);" onclick="handleGoLiveButton()">🖥️ Go Live</button>
+    </nav>
   </main>
 
   <!-- Modal Go Live (Equivalente ao PresentDesktopSourcePicker / getDesktopCaptureSources) -->
@@ -984,10 +1175,19 @@
 
         <div id="nativeScreensSection" style="display: none;">
           <div class="section-title" style="padding-left: 0;">
-            <span>Monitores Detectados pelo Rust (GetScreenPreviews)</span>
+            <span>Monitores e Janelas Detectados pelo Rust (GetScreenPreviews)</span>
             <button class="btn" style="padding: 3px 8px;" onclick="loadNativeScreenPreviews()">↻ Atualizar Miniaturas</button>
           </div>
           <div id="nativePreviewGrid" class="preview-grid"></div>
+        </div>
+
+        <div id="browserCaptureSourceGroup" class="field-group">
+          <label>Fonte de Vídeo no Navegador (PC ou Celular)</label>
+          <select id="selectCaptureSource">
+            <option value="display" selected>🖥️ Tela / Janela / Aba (Navegador PC)</option>
+            <option value="camera_env">📱 Câmera Traseira no Palco (Celular)</option>
+            <option value="camera_user">🤳 Câmera Frontal no Palco (Celular / Webcam)</option>
+          </select>
         </div>
 
         <div class="settings-row">
@@ -1160,13 +1360,30 @@
     // Convidados recebem "#key=<chave>" no link do convite. O fragmento (#) nunca é enviado
     // ao servidor nas requisições HTTP e é removido da barra de endereço logo ao carregar.
     const AUTH = (() => {
-      const params = new URLSearchParams(location.hash.slice(1));
-      const host = params.get("host") || sessionStorage.getItem("drocsid_host");
-      const key = params.get("key") || sessionStorage.getItem("drocsid_key");
-      const invite = params.get("invite") || "";
-      if (params.get("host")) sessionStorage.setItem("drocsid_host", host);
-      if (params.get("key")) sessionStorage.setItem("drocsid_key", key);
-      if (location.hash) history.replaceState(null, "", location.pathname);
+      const hashParams = new URLSearchParams(location.hash.slice(1));
+      const queryParams = new URLSearchParams(location.search);
+      const isLocalHost = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+      const lsKeyName = "drocsid_key_" + (location.host || "local");
+      const host = hashParams.get("host")
+        || sessionStorage.getItem("drocsid_host")
+        || (isLocalHost ? localStorage.getItem("drocsid_host_local") : null);
+      const key = hashParams.get("key")
+        || queryParams.get("key")
+        || sessionStorage.getItem("drocsid_key")
+        || localStorage.getItem(lsKeyName);
+      const invite = hashParams.get("invite") || queryParams.get("invite") || "";
+      if (hashParams.get("host")) {
+        sessionStorage.setItem("drocsid_host", host);
+        if (isLocalHost) {
+          try { localStorage.setItem("drocsid_host_local", host); } catch (_) {}
+        } else {
+          history.replaceState(null, "", location.pathname + location.search);
+        }
+      }
+      if (key) {
+        sessionStorage.setItem("drocsid_key", key);
+        try { localStorage.setItem(lsKeyName, key); } catch (_) {}
+      }
       return { host, key, invite };
     })();
 
@@ -1263,12 +1480,71 @@
     let laserMode = false;
     let theaterMode = false;
     let lastLaserSentAt = 0;
+    let layoutViewMode = "split";
+    let webrtcWatchdogId = null;
+    let relayHiddenVideoEl = null;
+
+    function isMobileDevice() {
+      return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "") || window.innerWidth <= 900;
+    }
+
+    function isRemoteOrMobile() {
+      return Boolean(customServerOrigin)
+        || (location.hostname !== "127.0.0.1" && location.hostname !== "localhost")
+        || isMobileDevice();
+    }
+
+    function toggleMobileSidebar(force) {
+      const sb = document.getElementById("sidebar");
+      const bd = document.getElementById("sidebarBackdrop");
+      if (!sb || !bd) return;
+      const open = typeof force === "boolean" ? force : !sb.classList.contains("open");
+      sb.classList.toggle("open", open);
+      bd.classList.toggle("open", open);
+    }
+
+    function setLayoutViewMode(mode) {
+      layoutViewMode = mode;
+      const mainArea = document.getElementById("mainArea");
+      if (!mainArea) return;
+      mainArea.classList.toggle("view-stage", mode === "stage");
+      mainArea.classList.toggle("view-chat", mode === "chat");
+      document.getElementById("btnViewSplit")?.classList.toggle("active-view", mode === "split");
+      document.getElementById("btnViewStage")?.classList.toggle("active-view", mode === "stage");
+      document.getElementById("btnViewChat")?.classList.toggle("active-view", mode === "chat");
+      if (mode !== "split") {
+        theaterMode = mode === "stage";
+        mainArea.classList.toggle("theater", false);
+        document.getElementById("btnTheaterMode")?.classList.toggle("active-green", theaterMode);
+      }
+    }
+
+    async function unlockBrowserAudio() {
+      const btn = document.getElementById("btnUnlockAudio");
+      try {
+        if (notifAudioCtx && notifAudioCtx.state === "suspended") await notifAudioCtx.resume();
+        if (vadAudioCtx && vadAudioCtx.state === "suspended") await vadAudioCtx.resume();
+      } catch (_) {}
+
+      const videoEl = document.getElementById("stageVideo");
+      if (videoEl && videoEl.srcObject) {
+        videoEl.muted = selfDeaf || (watchedStreamerId === myPeerId);
+        videoEl.volume = getEffectiveVolume(watchedStreamerId);
+        try { await videoEl.play(); } catch (_) {}
+      }
+      for (const a of document.querySelectorAll("#remoteAudioContainer audio")) {
+        a.muted = selfDeaf;
+        try { await a.play(); } catch (_) {}
+      }
+      if (btn) btn.style.display = "none";
+    }
 
     function init() {
       const savedName = localStorage.getItem("drocsid_username") || ("Amigo-" + Math.floor(100 + Math.random() * 899));
       document.getElementById("usernameInput").value = savedName;
-      initStageResizer();
-      initChatPasteAndShortcuts();
+      renderRooms();
+      try { initStageResizer(); } catch (err) { console.error("Erro em initStageResizer:", err); }
+      try { initChatPasteAndShortcuts(); } catch (err) { console.error("Erro em initChatPasteAndShortcuts:", err); }
       if (!window.isSecureContext) {
         appendChatEntry({
           username: "Sistema",
@@ -1286,8 +1562,12 @@
         }
       }
       if (!AUTH.host && !AUTH.key) {
-        document.getElementById("stageEmpty").innerHTML =
-          "<h3>Convite incompleto</h3><p>Este link não tem a chave da sala. Peça ao anfitrião para copiar o convite de novo pelo botão “📋 Copiar”.</p>";
+        document.getElementById("stageEmpty").innerHTML = `
+          <h3>Convite necessário para entrar na sala</h3>
+          <p>Este endereço não contém a chave da sala. Cole o código (<code>DROCSID-...</code>) ou o link completo enviado pelo anfitrião:</p>
+          <button class="btn" style="background: var(--brand); margin: 0 auto; padding: 9px 16px;" onclick="openJoinRemoteModal()">🔗 Inserir Código ou Link</button>
+        `;
+        openJoinRemoteModal();
         return;
       }
       connectWebSocket();
@@ -1598,8 +1878,17 @@
           } else if (prev && prev.in_voice && !msg.peer.in_voice) {
             playNotificationBeep(340, 65);
           }
-          if (!msg.peer.screen_share) {
-            remoteVideoStreams.delete(msg.peer.peer_id);
+          if (!msg.peer.screen_share || msg.peer.screen_share.mode !== "web_rtc") {
+            if (msg.peer.peer_id !== myPeerId) {
+              remoteVideoStreams.delete(msg.peer.peer_id);
+            }
+          } else {
+            const misclassified = remoteWebcamStreams.get(msg.peer.peer_id);
+            if (misclassified && misclassified.id === msg.peer.screen_share.source_id) {
+              remoteWebcamStreams.delete(msg.peer.peer_id);
+              remoteVideoStreams.set(msg.peer.peer_id, misclassified);
+              renderWebcamStrip();
+            }
           }
           renderPeers();
           renderStreamTabs();
@@ -1690,7 +1979,10 @@
     }
 
     function switchRoom(room) {
-      if (room === currentRoom) return;
+      if (room === currentRoom) {
+        toggleMobileSidebar(false);
+        return;
+      }
       if (myScreenShareMode) {
         stopScreenShare();
       }
@@ -1699,6 +1991,9 @@
       }
       watchedStreamerId = null;
       currentRoom = room;
+      document.getElementById("currentRoomLabel").textContent = "#" + room;
+      renderRooms();
+      toggleMobileSidebar(false);
       sendWs({
         type: "join_room",
         username: document.getElementById("usernameInput").value.trim(),
@@ -1712,6 +2007,7 @@
       const clean = name.trim().toLowerCase().replace(/\s+/g, "-");
       if (!clean) return;
       if (!knownRooms.includes(clean)) knownRooms.push(clean);
+      renderRooms();
       switchRoom(clean);
     }
 
@@ -1736,10 +2032,26 @@
       return `hsl(${hue}, 62%, 44%)`;
     }
 
+    function syncMyUsernameInput() {
+      const me = peers.get(myPeerId);
+      const input = document.getElementById("usernameInput");
+      if (me && input && document.activeElement !== input) {
+        input.value = me.username;
+      }
+    }
+
+    function kickPeer(peerId) {
+      const target = peers.get(peerId);
+      const label = target ? target.username : peerId;
+      if (!confirm(`Expulsar ${label} da sala?`)) return;
+      sendWs({ type: "kick_peer", target_id: peerId });
+    }
+
     function renderPeers() {
       const list = document.getElementById("peerList");
       list.innerHTML = "";
       document.getElementById("peerCount").textContent = peers.size;
+      const iAmHost = isHost || Boolean(peers.get(myPeerId)?.is_host);
 
       for (const peer of peers.values()) {
         const item = document.createElement("div");
@@ -1769,6 +2081,9 @@
         if (peer.peer_id !== myPeerId) {
           const curPeerVol = peerVolumes.has(peer.peer_id) ? peerVolumes.get(peer.peer_id) : 100;
           badgesHtml += `<input type="range" min="0" max="100" value="${curPeerVol}" style="width: 48px; accent-color: var(--brand); cursor: pointer;" title="Volume de ${escapeHtml(peer.username)}" oninput="setPeerVolume('${peer.peer_id}', this.value)" />`;
+          if (iAmHost) {
+            badgesHtml += `<button class="btn" style="padding: 2px 5px; font-size: 11px;" onclick="kickPeer('${peer.peer_id}')" title="Expulsar ${escapeHtml(peer.username)}">🚫</button>`;
+          }
         }
 
         item.innerHTML = `
@@ -1780,13 +2095,17 @@
         `;
         list.appendChild(item);
       }
+      renderWebcamStrip();
     }
 
     function linkifyText(escapedText) {
-      return escapedText.replace(
+      let html = escapedText.replace(
         /(https:\/\/[^\s<"]+)/g,
         '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #7289da; text-decoration: underline;">$1</a>'
       );
+      html = html.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+      html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+      return html;
     }
 
     function appendChatEntry(entry) {
@@ -1795,17 +2114,126 @@
       div.className = "msg" + (entry.is_system ? " system" : "");
       const date = new Date(entry.timestamp_ms || Date.now());
       const timeStr = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const safeBody = linkifyText(escapeHtml(entry.text));
+
+      let bodyHtml = "";
+      if (typeof entry.text === "string" && entry.text.startsWith("[drocsid-img]data:image/")) {
+        const dataUrl = entry.text.slice("[drocsid-img]".length);
+        const safeSrc = escapeHtml(dataUrl);
+        bodyHtml = `<a href="${safeSrc}" target="_blank" rel="noopener noreferrer"><img class="chat-img" src="${safeSrc}" alt="Imagem enviada no chat" /></a>`;
+      } else {
+        bodyHtml = linkifyText(escapeHtml(entry.text || ""));
+      }
 
       div.innerHTML = `
         <div class="msg-header">
           <span class="msg-author">${escapeHtml(entry.username)}</span>
           <span class="msg-time">${timeStr}</span>
         </div>
-        <div class="msg-text">${safeBody}</div>
+        <div class="msg-text">${bodyHtml}</div>
       `;
       container.appendChild(div);
       container.scrollTop = container.scrollHeight;
+    }
+
+    function initStageResizer() {
+      const resizer = document.getElementById("stageResizer");
+      const stage = document.getElementById("stageContainer");
+      const mainArea = document.getElementById("mainArea");
+      if (!resizer || !stage || !mainArea) return;
+
+      let dragging = false;
+      resizer.addEventListener("mousedown", (e) => {
+        if (theaterMode || layoutViewMode !== "split") return;
+        dragging = true;
+        document.body.style.userSelect = "none";
+        e.preventDefault();
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+        const rect = mainArea.getBoundingClientRect();
+        const topbarH = 52;
+        const rawH = e.clientY - rect.top - topbarH;
+        const maxH = Math.max(220, rect.height - 190);
+        const clamped = Math.max(150, Math.min(maxH, rawH));
+        stage.style.height = `${clamped}px`;
+        stage.style.minHeight = `${clamped}px`;
+      });
+
+      window.addEventListener("mouseup", () => {
+        if (!dragging) return;
+        dragging = false;
+        document.body.style.userSelect = "";
+      });
+    }
+
+    function initChatPasteAndShortcuts() {
+      const chatInput = document.getElementById("chatInput");
+      if (chatInput) {
+        chatInput.addEventListener("paste", (e) => {
+          const items = e.clipboardData?.items;
+          if (!items) return;
+          for (const item of items) {
+            if (item.type && item.type.startsWith("image/")) {
+              e.preventDefault();
+              const blob = item.getAsFile();
+              if (!blob) return;
+              const img = new Image();
+              const url = URL.createObjectURL(blob);
+              img.onload = () => {
+                URL.revokeObjectURL(url);
+                const maxSide = 1280;
+                const scale = Math.min(1, maxSide / Math.max(img.width || 1, img.height || 1));
+                const w = Math.max(1, Math.round(img.width * scale));
+                const h = Math.max(1, Math.round(img.height * scale));
+                const c = document.createElement("canvas");
+                c.width = w;
+                c.height = h;
+                c.getContext("2d").drawImage(img, 0, 0, w, h);
+                const dataUrl = c.toDataURL("image/jpeg", 0.72);
+                if (dataUrl.length > 190000) {
+                  alert("A imagem colada ainda ficou muito grande mesmo comprimida.");
+                  return;
+                }
+                sendWs({ type: "chat_message", text: `[drocsid-img]${dataUrl}` });
+              };
+              img.src = url;
+              break;
+            }
+          }
+        });
+
+        let autoSwitchedForKeyboard = false;
+        chatInput.addEventListener("focus", () => {
+          if (isMobileDevice() && layoutViewMode === "split") {
+            setTimeout(() => {
+              if (document.activeElement === chatInput && window.innerHeight < 560) {
+                autoSwitchedForKeyboard = true;
+                setLayoutViewMode("chat");
+              }
+            }, 250);
+          }
+        });
+        chatInput.addEventListener("blur", () => {
+          if (autoSwitchedForKeyboard && layoutViewMode === "chat") {
+            autoSwitchedForKeyboard = false;
+            setTimeout(() => setLayoutViewMode("split"), 150);
+          }
+        });
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+          const k = e.key.toLowerCase();
+          if (k === "m") {
+            e.preventDefault();
+            toggleMute();
+          } else if (k === "d") {
+            e.preventDefault();
+            toggleDeaf();
+          }
+        }
+      });
     }
 
     function sendChatMessage(e) {
@@ -1840,12 +2268,21 @@
 
     function updateVoiceButtonLabel() {
       const btn = document.getElementById("btnVoice");
+      const mBtn = document.getElementById("mBtnVoice");
       if (!voiceEnabled) {
         btn.textContent = "🎙️ Entrar na Voz";
         btn.classList.remove("active-green");
+        if (mBtn) {
+          mBtn.textContent = "🎙️ Voz";
+          mBtn.classList.remove("active-green");
+        }
         return;
       }
       btn.classList.add("active-green");
+      if (mBtn) {
+        mBtn.textContent = "🟢 Voz";
+        mBtn.classList.add("active-green");
+      }
       if (pttEnabled) {
         btn.textContent = pttKeyDown ? "🟢 PTT Falando" : "🟡 PTT (Segure V/Espaço)";
       } else {
@@ -2020,6 +2457,7 @@
           alert("Não foi possível acessar o microfone: " + err.message);
         }
       } else {
+        stopVoiceActivityDetection();
         if (localAudioStream) {
           localAudioStream.getTracks().forEach(t => t.stop());
           localAudioStream = null;
@@ -2033,16 +2471,28 @@
       }
     }
 
+    function stopVoiceActivityDetection() {
+      if (vadIntervalId) {
+        clearInterval(vadIntervalId);
+        vadIntervalId = null;
+      }
+      if (vadAudioCtx) {
+        vadAudioCtx.close().catch(() => {});
+        vadAudioCtx = null;
+      }
+    }
+
     function setupVoiceActivityDetection(stream) {
+      stopVoiceActivityDetection();
       try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audioCtx.createMediaStreamSource(stream);
-        const analyser = audioCtx.createAnalyser();
+        vadAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = vadAudioCtx.createMediaStreamSource(stream);
+        const analyser = vadAudioCtx.createAnalyser();
         analyser.fftSize = 512;
         source.connect(analyser);
         const data = new Uint8Array(analyser.frequencyBinCount);
 
-        setInterval(() => {
+        vadIntervalId = setInterval(() => {
           if (!voiceEnabled || selfMute || selfDeaf || (pttEnabled && !pttKeyDown)) {
             if (isSpeaking) {
               isSpeaking = false;
@@ -2077,6 +2527,11 @@
       const btn = document.getElementById("btnMute");
       btn.classList.toggle("active-red", selfMute);
       btn.textContent = selfMute ? "🔇 Mutado" : "🎤 Mutar";
+      const mBtn = document.getElementById("mBtnMute");
+      if (mBtn) {
+        mBtn.classList.toggle("active-red", selfMute);
+        mBtn.textContent = selfMute ? "🔇 Mudo" : "🎤 Mute";
+      }
       sendVoiceState();
     }
 
@@ -2116,6 +2571,23 @@
     }
 
     function openGoLiveModal() {
+      const hasTurn = Boolean((localStorage.getItem("drocsid_turn_url") || "").trim());
+      if (isRemoteOrMobile() && !hasTurn && selectedShareMode === "web_rtc") {
+        selectShareMode("universal_relay");
+      }
+      const srcSelect = document.getElementById("selectCaptureSource");
+      if (srcSelect) {
+        const hasGetDisplay = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === "function");
+        const displayOpt = srcSelect.querySelector('option[value="display"]');
+        if (displayOpt) {
+          displayOpt.textContent = hasGetDisplay
+            ? "🖥️ Tela / Janela / Aba (Navegador PC)"
+            : "🖥️ Captura de Tela (Indisponível neste celular — use câmera)";
+        }
+        if (!hasGetDisplay) {
+          srcSelect.value = "camera_env";
+        }
+      }
       document.getElementById("goLiveModal").classList.add("open");
       if (selectedShareMode === "native_host") {
         loadNativeScreenPreviews();
@@ -2132,6 +2604,8 @@
       document.getElementById("modeRelayCard").classList.toggle("selected", mode === "universal_relay");
       document.getElementById("modeNativeCard").classList.toggle("selected", mode === "native_host");
       document.getElementById("nativeScreensSection").style.display = mode === "native_host" ? "block" : "none";
+      const srcGroup = document.getElementById("browserCaptureSourceGroup");
+      if (srcGroup) srcGroup.style.display = mode === "native_host" ? "none" : "flex";
       if (mode === "native_host") {
         loadNativeScreenPreviews();
       }
@@ -2167,27 +2641,76 @@
       }
     }
 
+    async function acquireBrowserStageStream(width, height, fps, wantAudio) {
+      const sourceKind = document.getElementById("selectCaptureSource")?.value || "display";
+      if (sourceKind === "camera_env" || sourceKind === "camera_user") {
+        const facing = sourceKind === "camera_env" ? "environment" : "user";
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facing }, width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: Math.min(fps, 30) } },
+            audio: false
+          });
+        } catch (_) {
+          return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
+      }
+
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== "function") {
+        // Fallback automático para câmera no celular se o navegador móvel não suporta getDisplayMedia
+        return await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false
+        });
+      }
+
+      try {
+        return await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            width: { ideal: width },
+            height: { ideal: height },
+            frameRate: { ideal: fps, max: fps }
+          },
+          audio: wantAudio
+        });
+      } catch (err) {
+        if (err && err.name === "NotAllowedError") {
+          throw err;
+        }
+        return await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      }
+    }
+
+    function startWebRtcWatchdog() {
+      if (webrtcWatchdogId) clearTimeout(webrtcWatchdogId);
+      const hasTurn = Boolean((localStorage.getItem("drocsid_turn_url") || "").trim());
+      if (hasTurn) return;
+      webrtcWatchdogId = setTimeout(() => {
+        if (myScreenShareMode !== "web_rtc" || !localDisplayStream) return;
+        for (const pc of peerConnections.values()) {
+          const st = pc.iceConnectionState;
+          if (st !== "connected" && st !== "completed") {
+            fallbackWebRtcToUniversalRelay();
+            break;
+          }
+        }
+      }, 5000);
+    }
+
     async function confirmStartScreenShare() {
       const [width, height] = document.getElementById("selectResolution").value.split("x").map(Number);
       const fps = Number(document.getElementById("selectFps").value);
       const wantAudio = document.getElementById("selectAudioOrQuality").value === "audio_on";
 
       closeGoLiveModal();
+      toggleMobileSidebar(false);
 
       if (selectedShareMode === "web_rtc" || selectedShareMode === "universal_relay") {
         try {
-          localDisplayStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              width: { ideal: width },
-              height: { ideal: height },
-              frameRate: { ideal: fps, max: fps }
-            },
-            audio: wantAudio
-          });
+          localDisplayStream = await acquireBrowserStageStream(width, height, fps, wantAudio);
 
           const videoTrack = localDisplayStream.getVideoTracks()[0];
           const settings = videoTrack.getSettings();
-          const sourceName = videoTrack.label || "Tela / Janela";
+          const sourceName = videoTrack.label || "Tela / Câmera";
 
           videoTrack.onended = () => {
             stopScreenShare();
@@ -2201,7 +2724,7 @@
           sendWs({
             type: "start_screen_share",
             mode: selectedShareMode,
-            source_id: `${selectedShareMode}:display:0`,
+            source_id: localDisplayStream.id || `${selectedShareMode}:display:0`,
             source_name: sourceName,
             width: settings.width || width,
             height: settings.height || height,
@@ -2213,12 +2736,20 @@
           if (selectedShareMode === "web_rtc") {
             remoteVideoStreams.set(myPeerId, localDisplayStream);
             await renegotiateAllPeers();
+            startWebRtcWatchdog();
           } else {
-            startUniversalRelayCaptureLoop(localDisplayStream, width, height, Math.min(fps, 25));
+            if (localDisplayStream.getAudioTracks().length > 0) {
+              await renegotiateAllPeers();
+            }
+            const capFps = isMobileDevice() ? Math.min(fps, 15) : Math.min(fps, 25);
+            startUniversalRelayCaptureLoop(localDisplayStream, width, height, capFps);
           }
           updateStageView();
         } catch (err) {
-          console.warn("Compartilhamento cancelado:", err);
+          console.warn("Compartilhamento cancelado/erro:", err);
+          if (err && err.name !== "NotAllowedError") {
+            alert("Não foi possível iniciar a transmissão neste navegador: " + err.message);
+          }
         }
       } else {
         const chosen = nativePreviews[selectedMonitorIndex] || {
@@ -2246,54 +2777,104 @@
       }
     }
 
+    function buildClientBinaryFrame(frameSeq, width, height, jpegBytes) {
+      const header = new ArrayBuffer(16 + jpegBytes.byteLength);
+      const view = new DataView(header);
+      view.setUint8(0, 68); // 'D'
+      view.setUint8(1, 86); // 'V'
+      view.setUint8(2, 80); // 'P'
+      view.setUint8(3, 1);
+      view.setBigUint64(4, BigInt(frameSeq), false);
+      view.setUint16(12, width & 0xffff, false);
+      view.setUint16(14, height & 0xffff, false);
+      new Uint8Array(header, 16).set(new Uint8Array(jpegBytes));
+      return header;
+    }
+
     function startUniversalRelayCaptureLoop(stream, targetW, targetH, fps) {
       if (relayIntervalId) clearInterval(relayIntervalId);
+      if (relayHiddenVideoEl) {
+        try { relayHiddenVideoEl.srcObject = null; relayHiddenVideoEl.remove(); } catch (_) {}
+        relayHiddenVideoEl = null;
+      }
+
       const hiddenVideo = document.createElement("video");
-      hiddenVideo.srcObject = stream;
+      hiddenVideo.playsInline = true;
+      hiddenVideo.setAttribute("playsinline", "");
+      hiddenVideo.setAttribute("webkit-playsinline", "");
+      hiddenVideo.autoplay = true;
       hiddenVideo.muted = true;
+      hiddenVideo.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;";
+      hiddenVideo.srcObject = stream;
+      document.body.appendChild(hiddenVideo);
+      relayHiddenVideoEl = hiddenVideo;
       hiddenVideo.play().catch(() => {});
 
       const offCanvas = document.createElement("canvas");
       const ctx = offCanvas.getContext("2d");
       let seq = 0;
+      let encodingFrame = false;
 
       relayIntervalId = setInterval(() => {
         if (!localDisplayStream || myScreenShareMode !== "universal_relay") {
           clearInterval(relayIntervalId);
+          relayIntervalId = null;
           return;
         }
-        if (!ws || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 256 * 1024) {
+        if (encodingFrame || hiddenVideo.readyState < 2 || !ws || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 320 * 1024) {
           return;
         }
         const vw = hiddenVideo.videoWidth || targetW;
         const vh = hiddenVideo.videoHeight || targetH;
         if (vw === 0 || vh === 0) return;
 
-        const w = Math.min(vw, 1280);
-        const h = Math.round((vh * w) / vw);
+        // T-4: Bitrate / resolução adaptativa com base no backlog e dispositivo
+        const highLoad = ws.bufferedAmount > 128 * 1024;
+        const mobileCap = isMobileDevice() ? 854 : 1280;
+        const maxW = highLoad ? Math.min(mobileCap, 854) : mobileCap;
+        const jpegQuality = highLoad ? 0.48 : 0.68;
+
+        const w = Math.min(vw, maxW);
+        const h = Math.max(1, Math.round((vh * w) / vw));
         offCanvas.width = w;
         offCanvas.height = h;
         ctx.drawImage(hiddenVideo, 0, 0, w, h);
 
-        const dataUrl = offCanvas.toDataURL("image/jpeg", 0.68);
-        const b64 = dataUrl.split(",")[1];
-        if (b64) {
-          seq++;
-          sendWs({
-            type: "push_video_frame",
-            frame_seq: seq,
-            width: w,
-            height: h,
-            jpeg_base64: b64
-          });
-        }
+        encodingFrame = true;
+        offCanvas.toBlob(async (blob) => {
+          try {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            if (blob) {
+              const buf = await blob.arrayBuffer();
+              seq++;
+              ws.send(buildClientBinaryFrame(seq, w, h, buf));
+            } else {
+              const dataUrl = offCanvas.toDataURL("image/jpeg", jpegQuality);
+              const b64 = dataUrl.split(",")[1];
+              if (b64) {
+                seq++;
+                sendWs({ type: "push_video_frame", frame_seq: seq, width: w, height: h, jpeg_base64: b64 });
+              }
+            }
+          } finally {
+            encodingFrame = false;
+          }
+        }, "image/jpeg", jpegQuality);
       }, Math.max(45, Math.round(1000 / fps)));
     }
 
     async function stopScreenShare() {
+      if (webrtcWatchdogId) {
+        clearTimeout(webrtcWatchdogId);
+        webrtcWatchdogId = null;
+      }
       if (relayIntervalId) {
         clearInterval(relayIntervalId);
         relayIntervalId = null;
+      }
+      if (relayHiddenVideoEl) {
+        try { relayHiddenVideoEl.srcObject = null; relayHiddenVideoEl.remove(); } catch (_) {}
+        relayHiddenVideoEl = null;
       }
       // P0-8: remove explicitamente os senders da tela antes de renegociar para não congelar nos amigos
       if (localDisplayStream) {
@@ -2321,47 +2902,98 @@
       const btn = document.getElementById("btnGoLive");
       btn.classList.toggle("streaming", active);
       btn.textContent = active ? "⏹️ Parar Compartilhamento" : "🖥️ Compartilhar Tela (Go Live)";
+      const mBtn = document.getElementById("mBtnGoLive");
+      if (mBtn) {
+        mBtn.classList.toggle("active-red", active);
+        mBtn.textContent = active ? "⏹️ Parar" : "🖥️ Go Live";
+      }
     }
 
     // ==================== Recepção de Quadros + Backpressure (SignalVideoOutputSinkReady) ====================
+    function formatUuidBytes(bytes) {
+      const hex = [];
+      for (let i = 0; i < 16; i++) {
+        hex.push(bytes[i].toString(16).padStart(2, "0"));
+      }
+      return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+    }
+
+    function handleBinaryVideoFrame(buffer) {
+      if (!buffer || buffer.byteLength <= 32) return;
+      const view = new DataView(buffer);
+      if (
+        view.getUint8(0) !== 68 || // 'D'
+        view.getUint8(1) !== 86 || // 'V'
+        view.getUint8(2) !== 70 || // 'F'
+        view.getUint8(3) !== 1
+      ) {
+        return;
+      }
+      const streamerId = formatUuidBytes(new Uint8Array(buffer, 4, 16));
+      const frameSeq = Number(view.getBigUint64(20, false));
+      const width = view.getUint16(28, false);
+      const height = view.getUint16(30, false);
+      const blob = new Blob([new Uint8Array(buffer, 32)], { type: "image/jpeg" });
+      const blobUrl = URL.createObjectURL(blob);
+      drawRelayFrame(streamerId, frameSeq, width, height, blobUrl, true);
+    }
+
     function handleNativeVideoFrame(msg) {
-      if (!watchedStreamerId) {
-        watchedStreamerId = msg.streamer_id;
+      drawRelayFrame(
+        msg.streamer_id,
+        msg.frame_seq,
+        msg.width,
+        msg.height,
+        "data:image/jpeg;base64," + msg.jpeg_base64,
+        false
+      );
+    }
+
+    function drawRelayFrame(streamerId, frameSeq, width, height, srcUrl, revokeBlob) {
+      if (!watchedStreamerId && !gridMode) {
+        watchedStreamerId = streamerId;
         renderStreamTabs();
         updateStageView();
       }
 
-      if (watchedStreamerId !== msg.streamer_id) {
+      const targetCanvas = gridMode
+        ? document.getElementById(`grid-canvas-${streamerId}`)
+        : (watchedStreamerId === streamerId ? document.getElementById("stageCanvas") : null);
+
+      if (!targetCanvas) {
+        if (revokeBlob) URL.revokeObjectURL(srcUrl);
         sendWs({
           type: "signal_video_output_sink_ready",
-          streamer_id: msg.streamer_id,
-          frame_seq: msg.frame_seq
+          streamer_id: streamerId,
+          frame_seq: frameSeq
         });
         return;
       }
 
-      const canvas = document.getElementById("stageCanvas");
-      const ctx = canvas.getContext("2d");
+      const ctx = targetCanvas.getContext("2d");
       const img = new Image();
-
       img.onload = () => {
-        if (canvas.width !== msg.width || canvas.height !== msg.height) {
-          canvas.width = msg.width;
-          canvas.height = msg.height;
+        if (revokeBlob) URL.revokeObjectURL(srcUrl);
+        if (!gridMode && watchedStreamerId !== streamerId) return;
+        if (targetCanvas.width !== width || targetCanvas.height !== height) {
+          targetCanvas.width = width;
+          targetCanvas.height = height;
         }
-        ctx.drawImage(img, 0, 0, msg.width, msg.height);
+        ctx.drawImage(img, 0, 0, width, height);
         renderedFramesCount++;
 
         requestAnimationFrame(() => {
           sendWs({
             type: "signal_video_output_sink_ready",
-            streamer_id: msg.streamer_id,
-            frame_seq: msg.frame_seq
+            streamer_id: streamerId,
+            frame_seq: frameSeq
           });
         });
       };
-
-      img.src = "data:image/jpeg;base64," + msg.jpeg_base64;
+      img.onerror = () => {
+        if (revokeBlob) URL.revokeObjectURL(srcUrl);
+      };
+      img.src = srcUrl;
     }
 
     // ==================== Palco (Stage) ====================
@@ -2389,6 +3021,10 @@
     }
 
     function selectWatchedStreamer(peerId) {
+      if (watchedStreamerId !== peerId) {
+        const c = document.getElementById("stageCanvas");
+        if (c) c.getContext("2d").clearRect(0, 0, c.width, c.height);
+      }
       watchedStreamerId = peerId;
       renderStreamTabs();
       updateStageView();
@@ -2418,10 +3054,86 @@
       applyAllAudioVolumes();
     }
 
+    function playVideoSafely(videoEl, wantMuted) {
+      videoEl.playsInline = true;
+      videoEl.setAttribute("playsinline", "");
+      videoEl.setAttribute("webkit-playsinline", "");
+      videoEl.muted = wantMuted;
+      const p = videoEl.play();
+      if (p && typeof p.catch === "function") {
+        p.catch(() => {
+          if (!videoEl.muted) {
+            videoEl.muted = true;
+            videoEl.play().catch(() => {});
+            const unlockBtn = document.getElementById("btnUnlockAudio");
+            if (unlockBtn) unlockBtn.style.display = "block";
+          }
+        });
+      }
+    }
+
     function updateStageView() {
       const videoEl = document.getElementById("stageVideo");
       const canvasEl = document.getElementById("stageCanvas");
+      const gridEl = document.getElementById("stageGrid");
       const emptyEl = document.getElementById("stageEmpty");
+
+      const livePeers = Array.from(peers.values()).filter(p => p.screen_share);
+
+      if (gridMode) {
+        videoEl.style.display = "none";
+        videoEl.srcObject = null;
+        canvasEl.style.display = "none";
+
+        if (livePeers.length === 0) {
+          gridEl.classList.remove("active");
+          gridEl.innerHTML = "";
+          emptyEl.style.display = "block";
+          return;
+        }
+
+        emptyEl.style.display = "none";
+        gridEl.classList.add("active");
+        gridEl.innerHTML = "";
+
+        for (const p of livePeers.slice(0, 4)) {
+          const tile = document.createElement("div");
+          tile.className = "grid-tile";
+
+          const isSelfRelay = p.peer_id === myPeerId && p.screen_share.mode === "universal_relay" && localDisplayStream;
+          const webrtcStream = p.screen_share.mode === "web_rtc" ? remoteVideoStreams.get(p.peer_id) : null;
+
+          if (isSelfRelay || webrtcStream) {
+            const v = document.createElement("video");
+            v.autoplay = true;
+            v.playsInline = true;
+            v.srcObject = isSelfRelay ? localDisplayStream : webrtcStream;
+            v.volume = getEffectiveVolume(p.peer_id);
+            applyOutputSinkToElement(v);
+            playVideoSafely(v, selfDeaf || p.peer_id === myPeerId);
+            tile.appendChild(v);
+          } else {
+            const c = document.createElement("canvas");
+            c.id = `grid-canvas-${p.peer_id}`;
+            tile.appendChild(c);
+          }
+
+          const label = document.createElement("div");
+          label.className = "grid-tile-label";
+          label.textContent = `${p.username} (${p.screen_share.width}x${p.screen_share.height})`;
+          tile.appendChild(label);
+          tile.onclick = () => {
+            gridMode = false;
+            document.getElementById("btnGridMode").classList.remove("active-green");
+            selectWatchedStreamer(p.peer_id);
+          };
+          gridEl.appendChild(tile);
+        }
+        return;
+      }
+
+      gridEl.classList.remove("active");
+      gridEl.innerHTML = "";
 
       const streamer = watchedStreamerId ? peers.get(watchedStreamerId) : null;
       if (!streamer || !streamer.screen_share) {
@@ -2443,23 +3155,214 @@
         videoEl.style.display = "block";
         if (videoEl.srcObject !== localDisplayStream) {
           videoEl.srcObject = localDisplayStream;
-          videoEl.muted = true;
-          videoEl.play().catch(() => {});
+          playVideoSafely(videoEl, true);
         }
       } else if (streamer.screen_share.mode === "native_host" || streamer.screen_share.mode === "universal_relay") {
         videoEl.style.display = "none";
+        videoEl.srcObject = null;
         canvasEl.style.display = "block";
       } else {
         canvasEl.style.display = "none";
         videoEl.style.display = "block";
         const stream = remoteVideoStreams.get(watchedStreamerId);
-        if (stream && videoEl.srcObject !== stream) {
-          videoEl.srcObject = stream;
-          videoEl.muted = selfDeaf || (watchedStreamerId === myPeerId);
-          videoEl.volume = getEffectiveVolume(watchedStreamerId);
-          applyOutputSinkToElement(videoEl);
-          videoEl.play().catch(() => {});
+        if (stream) {
+          if (videoEl.srcObject !== stream) {
+            videoEl.srcObject = stream;
+            videoEl.volume = getEffectiveVolume(watchedStreamerId);
+            applyOutputSinkToElement(videoEl);
+            playVideoSafely(videoEl, selfDeaf || (watchedStreamerId === myPeerId));
+          }
+        } else {
+          videoEl.srcObject = null;
         }
+      }
+    }
+
+    function toggleGridMode() {
+      gridMode = !gridMode;
+      document.getElementById("btnGridMode").classList.toggle("active-green", gridMode);
+      updateStageView();
+    }
+
+    function toggleTheaterMode() {
+      theaterMode = !theaterMode;
+      setLayoutViewMode(theaterMode ? "stage" : "split");
+    }
+
+    function toggleLaserMode() {
+      laserMode = !laserMode;
+      const btn = document.getElementById("btnLaserMode");
+      btn.classList.toggle("active-green", laserMode);
+      const viewport = document.getElementById("stageViewport");
+      viewport.style.cursor = laserMode ? "crosshair" : "";
+      if (!viewport.dataset.laserBound) {
+        viewport.dataset.laserBound = "1";
+        const emitLaser = (e) => {
+          if (!laserMode || !ws || ws.readyState !== WebSocket.OPEN) return;
+          const now = performance.now();
+          if (now - lastLaserSentAt < 45) return;
+          const rect = viewport.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) return;
+          const xNorm = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const yNorm = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+          lastLaserSentAt = now;
+          sendWs({ type: "laser_pointer", x_norm: xNorm, y_norm: yNorm });
+          renderLaserDot(myPeerId, "Você", xNorm, yNorm);
+        };
+        viewport.addEventListener("pointermove", emitLaser);
+        viewport.addEventListener("pointerdown", emitLaser);
+      }
+    }
+
+    function renderLaserDot(peerId, username, xNorm, yNorm) {
+      const overlay = document.getElementById("laserOverlay");
+      if (!overlay) return;
+      const id = `laser-${peerId}`;
+      let dot = document.getElementById(id);
+      if (!dot) {
+        dot = document.createElement("div");
+        dot.id = id;
+        dot.className = "laser-dot";
+        dot.innerHTML = `<span class="laser-tag">${escapeHtml(username || "Amigo")}</span>`;
+        overlay.appendChild(dot);
+      }
+      dot.style.left = `${(Math.max(0, Math.min(1, xNorm)) * 100).toFixed(2)}%`;
+      dot.style.top = `${(Math.max(0, Math.min(1, yNorm)) * 100).toFixed(2)}%`;
+      clearTimeout(dot._hideTimer);
+      dot._hideTimer = setTimeout(() => dot.remove(), 1400);
+    }
+
+    async function toggleWebcam() {
+      const btn = document.getElementById("btnWebcam");
+      const mBtn = document.getElementById("mBtnWebcam");
+      if (!localWebcamStream) {
+        try {
+          localWebcamStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24, max: 30 } },
+            audio: false
+          });
+          btn.classList.add("active-green");
+          btn.textContent = "📷 Parar Câmera";
+          if (mBtn) {
+            mBtn.classList.add("active-green");
+            mBtn.textContent = "📷 On";
+          }
+          renderWebcamStrip();
+          await renegotiateAllPeers();
+        } catch (err) {
+          alert("Não foi possível acessar a câmera: " + err.message);
+        }
+      } else {
+        const camIds = new Set(localWebcamStream.getTracks().map(t => t.id));
+        for (const pc of peerConnections.values()) {
+          for (const sender of pc.getSenders()) {
+            if (sender.track && camIds.has(sender.track.id)) {
+              try { pc.removeTrack(sender); } catch (_) {}
+            }
+          }
+        }
+        localWebcamStream.getTracks().forEach(t => t.stop());
+        localWebcamStream = null;
+        btn.classList.remove("active-green");
+        btn.textContent = "📷 Câmera";
+        if (mBtn) {
+          mBtn.classList.remove("active-green");
+          mBtn.textContent = "📷 Cam";
+        }
+        renderWebcamStrip();
+        await renegotiateAllPeers();
+      }
+    }
+
+    function renderWebcamStrip() {
+      const strip = document.getElementById("webcamStrip");
+      if (!strip) return;
+      const entries = [];
+      if (localWebcamStream) {
+        entries.push({ peerId: myPeerId || "self", name: "Você (Câmera)", stream: localWebcamStream });
+      }
+      for (const [peerId, stream] of remoteWebcamStreams.entries()) {
+        if (!stream || stream.getVideoTracks().every(t => t.readyState === "ended")) continue;
+        const p = peers.get(peerId);
+        entries.push({ peerId, name: p ? p.username : "Amigo", stream });
+      }
+
+      if (entries.length === 0) {
+        strip.classList.remove("active");
+        strip.innerHTML = "";
+        return;
+      }
+
+      strip.classList.add("active");
+      strip.innerHTML = "";
+      for (const item of entries) {
+        const card = document.createElement("div");
+        card.className = "webcam-card";
+        const v = document.createElement("video");
+        v.autoplay = true;
+        v.playsInline = true;
+        v.setAttribute("playsinline", "");
+        v.muted = true;
+        v.srcObject = item.stream;
+        v.play().catch(() => {});
+        const label = document.createElement("span");
+        label.textContent = item.name;
+        card.appendChild(v);
+        card.appendChild(label);
+        strip.appendChild(card);
+      }
+    }
+
+    function toggleSoundboard() {
+      const bar = document.getElementById("soundboardBar");
+      const btn = document.getElementById("btnSoundboard");
+      const open = bar.classList.toggle("open");
+      btn.classList.toggle("active-green", open);
+    }
+
+    function sendSoundEffect(kind) {
+      sendWs({ type: "sound_effect", kind });
+    }
+
+    function playSoundboardEffect(kind, username) {
+      if (selfDeaf) return;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = ctx.currentTime;
+        const vol = 0.16 * masterVolume;
+        const playTone = (freq, start, dur, type = "triangle", endFreq = null) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, now + start);
+          if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, now + start + dur);
+          gain.gain.setValueAtTime(Math.max(0.001, vol), now + start);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + start);
+          osc.stop(now + start + dur + 0.02);
+        };
+
+        if (kind === "party") {
+          [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => playTone(f, i * 0.08, 0.18, "triangle"));
+        } else if (kind === "alert") {
+          playTone(880, 0, 0.14, "square");
+          playTone(660, 0.15, 0.14, "square");
+          playTone(880, 0.30, 0.18, "square");
+        } else if (kind === "badum") {
+          playTone(170, 0, 0.12, "sine", 70);
+          playTone(140, 0.16, 0.12, "sine", 65);
+          playTone(1200, 0.32, 0.35, "sawtooth", 300);
+        } else {
+          playTone(350, 0, 0.36, "sawtooth");
+          playTone(440, 0, 0.36, "sawtooth");
+        }
+        setTimeout(() => ctx.close().catch(() => {}), 900);
+      } catch (_) {}
+      const hud = document.getElementById("hudStatus");
+      if (hud && username) {
+        hud.dataset.soundNotice = `${username} tocou ${kind}`;
       }
     }
 
@@ -2496,14 +3399,15 @@
 
       const streamer = watchedStreamerId ? peers.get(watchedStreamerId) : null;
       const hud = document.getElementById("hudStatus");
+      const pingText = typeof pingMs === "number" ? ` • Ping: ${pingMs} ms` : "";
       if (streamer && streamer.screen_share) {
         const s = streamer.screen_share;
         const engine = (s.mode === "native_host" || s.mode === "universal_relay")
           ? `${s.mode === "native_host" ? "Rust GDI" : "Relay Internet"} (${measuredFps} FPS Acked)`
           : `WebRTC P2P+TURN (${s.fps} FPS Alvo)`;
-        hud.textContent = `Assistindo ${streamer.username} • ${s.width}x${s.height} • ${engine}`;
+        hud.textContent = `Assistindo ${streamer.username} • ${s.width}x${s.height} • ${engine}${pingText}`;
       } else {
-        hud.textContent = `Sala #${currentRoom} • ${peers.size} online`;
+        hud.textContent = `Sala #${currentRoom} • ${peers.size} online${pingText}`;
       }
     }
 
@@ -2517,11 +3421,11 @@
       const fps = Math.min(settings.frameRate || 24, 24);
       const sourceName = (track && track.label) || "Tela / Janela";
 
-      // Remove senders da tela do WebRTC antes de migrar para o Relay
-      const displayTracks = new Set(localDisplayStream.getTracks().map(t => t.id));
+      // Remove apenas as trilhas de VÍDEO da tela antes de migrar para o Relay (mantém áudio do sistema se houver!)
+      const displayVideoTracks = new Set(localDisplayStream.getVideoTracks().map(t => t.id));
       for (const pc of peerConnections.values()) {
         for (const sender of pc.getSenders()) {
-          if (sender.track && displayTracks.has(sender.track.id)) {
+          if (sender.track && displayVideoTracks.has(sender.track.id)) {
             try { pc.removeTrack(sender); } catch (_) {}
           }
         }
@@ -2536,10 +3440,12 @@
         width,
         height,
         fps,
-        has_audio: false,
+        has_audio: localDisplayStream.getAudioTracks().length > 0,
         quality: null
       });
-      startUniversalRelayCaptureLoop(localDisplayStream, width, height, fps);
+      await renegotiateAllPeers();
+      const capFps = isMobileDevice() ? Math.min(fps, 15) : fps;
+      startUniversalRelayCaptureLoop(localDisplayStream, width, height, capFps);
       document.getElementById("hudStatus").textContent =
         "P2P bloqueado pela rede — alternado automaticamente para Relay!";
       updateStageView();
@@ -2570,7 +3476,7 @@
 
       // P0-6: fallback automático para o Relay quando ICE falha (ex: CGNAT simétrico sem TURN)
       pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === "failed") {
+        if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
           if (myScreenShareMode === "web_rtc" && localDisplayStream) {
             fallbackWebRtcToUniversalRelay();
           } else {
@@ -2584,12 +3490,40 @@
         if (!stream) return;
 
         if (e.track.kind === "video") {
-          remoteVideoStreams.set(remotePeerId, stream);
-          if (!watchedStreamerId) {
-            watchedStreamerId = remotePeerId;
+          const p = peers.get(remotePeerId);
+          const isScreenStream = Boolean(
+            p &&
+            p.screen_share &&
+            p.screen_share.mode === "web_rtc" &&
+            p.screen_share.source_id === stream.id
+          );
+
+          if (isScreenStream) {
+            if (remoteWebcamStreams.get(remotePeerId)?.id === stream.id) {
+              remoteWebcamStreams.delete(remotePeerId);
+              renderWebcamStrip();
+            }
+            remoteVideoStreams.set(remotePeerId, stream);
+            if (!watchedStreamerId) {
+              watchedStreamerId = remotePeerId;
+            }
+            renderStreamTabs();
+            updateStageView();
+          } else {
+            remoteWebcamStreams.set(remotePeerId, stream);
+            renderWebcamStrip();
           }
-          renderStreamTabs();
-          updateStageView();
+
+          e.track.onended = () => {
+            if (remoteWebcamStreams.get(remotePeerId)?.id === stream.id) {
+              remoteWebcamStreams.delete(remotePeerId);
+              renderWebcamStrip();
+            }
+            if (remoteVideoStreams.get(remotePeerId)?.id === stream.id) {
+              remoteVideoStreams.delete(remotePeerId);
+              updateStageView();
+            }
+          };
         } else if (e.track.kind === "audio") {
           // P0-9: se a stream também tem vídeo, o áudio já toca no #stageVideo — evita duplicar
           if (stream.getVideoTracks().length > 0) {
@@ -2607,6 +3541,10 @@
             document.getElementById("remoteAudioContainer").appendChild(audioEl);
           }
           audioEl.srcObject = stream;
+          audioEl.play().catch(() => {
+            const unlockBtn = document.getElementById("btnUnlockAudio");
+            if (unlockBtn) unlockBtn.style.display = "block";
+          });
         }
       };
 
@@ -2630,6 +3568,21 @@
         for (const track of localDisplayStream.getTracks()) {
           if (!existingTrackIds.has(track.id)) {
             pc.addTrack(track, localDisplayStream);
+          }
+        }
+      } else if (localDisplayStream && myScreenShareMode === "universal_relay") {
+        // T-2: envia o áudio do sistema via WebRTC quando o vídeo vai pelo Relay binário
+        for (const track of localDisplayStream.getAudioTracks()) {
+          if (!existingTrackIds.has(track.id)) {
+            pc.addTrack(track, localDisplayStream);
+          }
+        }
+      }
+
+      if (localWebcamStream) {
+        for (const track of localWebcamStream.getTracks()) {
+          if (!existingTrackIds.has(track.id)) {
+            pc.addTrack(track, localWebcamStream);
           }
         }
       }
@@ -2743,6 +3696,7 @@
       pendingCandidates.delete(peerId);
       makingOfferMap.delete(peerId);
       remoteVideoStreams.delete(peerId);
+      remoteWebcamStreams.delete(peerId);
       document.querySelectorAll(`[id^="audio-${peerId}-"]`).forEach(el => el.remove());
     }
 

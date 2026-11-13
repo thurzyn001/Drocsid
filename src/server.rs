@@ -465,6 +465,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
 
                 let updated = {
                     let mut peers = state.peers.write().await;
+                    for p in peers.values_mut() {
+                        p.sink_ready_seq.remove(&peer_id);
+                    }
                     if let Some(peer) = peers.get_mut(&peer_id) {
                         peer.info.screen_share = Some(share_info.clone());
                         Some(peer.info.clone())
@@ -519,6 +522,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, role: Role) {
 
                 let updated = {
                     let mut peers = state.peers.write().await;
+                    for p in peers.values_mut() {
+                        p.sink_ready_seq.remove(&peer_id);
+                    }
                     if let Some(peer) = peers.get_mut(&peer_id) {
                         let was_sharing = peer.info.screen_share.is_some();
                         peer.info.screen_share = None;

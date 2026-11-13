@@ -444,8 +444,9 @@ pub const FRAME_ACK_TIMEOUT_MS: u64 = 600;
 
 /// Decisão de backpressure no estilo SignalVideoOutputSinkReady (ordinal 237 do discord_voice.node).
 pub fn should_send_frame(acked_seq: u64, last_send_ms: u64, frame_seq: u64, now_ms: u64) -> bool {
-    acked_seq == 0
-        || frame_seq.saturating_sub(acked_seq) <= MAX_FRAMES_IN_FLIGHT
+    last_send_ms == 0
+        || (acked_seq > 0 && frame_seq < acked_seq)
+        || (acked_seq > 0 && frame_seq.saturating_sub(acked_seq) <= MAX_FRAMES_IN_FLIGHT)
         || now_ms.saturating_sub(last_send_ms) > FRAME_ACK_TIMEOUT_MS
 }
 
@@ -455,9 +456,11 @@ mod tests {
 
     #[test]
     fn backpressure_rules() {
-        // Ainda sem nenhum ACK: envia
+        // Primeiro frame ainda não enviado: envia
         assert!(should_send_frame(0, 0, 1, 1000));
-        // Até 2 quadros em voo: envia
+        // Já enviou o primeiro frame e ainda não voltou ACK: aguarda ACK ou timeout (evita flood em 4G/celular)
+        assert!(!should_send_frame(0, 1000, 2, 1050));
+        // Até 2 quadros em voo após ACK: envia
         assert!(should_send_frame(10, 1000, 12, 1100));
         // 3 em voo e sem timeout: segura
         assert!(!should_send_frame(10, 1000, 13, 1100));

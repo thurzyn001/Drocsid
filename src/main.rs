@@ -120,7 +120,7 @@ async fn main() {
         }
     };
 
-    let secrets = Secrets::generate();
+    let secrets = Secrets::load_or_generate(data_dir().join("secrets.json"));
     let host_url = format!("http://127.0.0.1:{port}/#host={}", secrets.host_token);
     if let Some(sess_path) = session_url_path() {
         let _ = std::fs::write(&sess_path, &host_url);

@@ -5,8 +5,12 @@
 //!   miniaturas de monitores, controle do túnel e configurações.
 //! * `room_key`: vai dentro do convite. Sem ela o WebSocket da sala é recusado.
 
-use std::sync::{Arc, RwLock};
+use std::{
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 use axum::http::HeaderMap;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,10 +19,17 @@ pub enum Role {
     Guest,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedSecrets {
+    host_token: String,
+    room_key: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct Secrets {
     pub host_token: String,
     pub room_key: Arc<RwLock<String>>,
+    persist_path: Option<Arc<PathBuf>>,
 }
 
 impl Secrets {
@@ -28,6 +39,7 @@ impl Secrets {
             host_token: format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple()),
             // 122 bits aleatórios, 32 caracteres hex
             room_key: Arc::new(RwLock::new(Uuid::new_v4().simple().to_string())),
+            persist_path: None,
         }
     }
 
@@ -35,6 +47,41 @@ impl Secrets {
         Self {
             host_token: host_token.into(),
             room_key: Arc::new(RwLock::new(room_key.into())),
+            persist_path: None,
+        }
+    }
+
+    pub fn load_or_generate(path: PathBuf) -> Self {
+        if let Ok(raw) = std::fs::read_to_string(&path) {
+            if let Ok(parsed) = serde_json::from_str::<PersistedSecrets>(&raw) {
+                if parsed.host_token.len() >= 32 && parsed.room_key.len() >= 16 {
+                    return Self {
+                        host_token: parsed.host_token,
+                        room_key: Arc::new(RwLock::new(parsed.room_key)),
+                        persist_path: Some(Arc::new(path)),
+                    };
+                }
+            }
+        }
+        let mut s = Self::generate();
+        s.persist_path = Some(Arc::new(path));
+        s.save_to_disk();
+        s
+    }
+
+    fn save_to_disk(&self) {
+        let Some(ref path) = self.persist_path else {
+            return;
+        };
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let payload = PersistedSecrets {
+            host_token: self.host_token.clone(),
+            room_key: self.current_room_key(),
+        };
+        if let Ok(json) = serde_json::to_string_pretty(&payload) {
+            let _ = std::fs::write(path.as_path(), json);
         }
     }
 
@@ -47,6 +94,7 @@ impl Secrets {
         if let Ok(mut g) = self.room_key.write() {
             *g = new_key.clone();
         }
+        self.save_to_disk();
         new_key
     }
 
