@@ -67,22 +67,45 @@ Ao clicar em **🖥️ Compartilhar Tela (Go Live)**, você pode escolher entre:
 
 ---
 
-## 4. Como Recompilar e Testar Manualmente
+## 4. Como Baixar ou Compilar pelo Repositório
 
-Para rodar os testes unitários e de rotas HTTP (sem abrir sockets reais):
+Quem clonar o repositório (`git clone https://github.com/thurzyn001/Drocsid.git`) tem **duas formas** de usar:
 
+### Opção A — Usar o instalador já pronto (Sem precisar compilar)
+O instalador já vem pronto dentro da pasta `dist` do repositório:
+1. Abra a pasta `dist` e execute [`dist/Drocsid-Setup.exe`](dist/Drocsid-Setup.exe) (ou baixe direto o arquivo `dist/Drocsid-Setup.exe` pela página do GitHub).
+
+---
+
+### Opção B — Compilar do código-fonte na sua máquina
+
+#### 1. Pré-requisito (apenas na 1ª vez)
+Ter o **Rust** instalado no Windows:
 ```powershell
-cargo test --offline
+winget install Rustlang.Rustup
+```
+*(Após instalar o Rust pela primeira vez, feche e reabra o terminal).*
+
+#### 2. Gerar o instalador `dist\Drocsid-Setup.exe`
+Dê dois cliques no arquivo **`compilar-instalador.bat`** na raiz do projeto, ou rode no terminal:
+```powershell
+.\compilar-instalador.bat
+```
+*(Se preferir chamar o script PowerShell diretamente sem bloqueio de política de execução do Windows)*:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build-installer.ps1
 ```
 
-Para rodar também os testes E2E com sockets WebSocket locais:
-
+#### 3. Ou rodar o app direto pelo Cargo (sem instalador)
 ```powershell
-cargo test --offline -- --include-ignored
+cargo run --release
 ```
 
-Para recompilar `target\release\drocsid.exe` (com `lto = "thin"` e `strip = true`) e atualizar [`dist/Drocsid-Setup.exe`](dist/Drocsid-Setup.exe):
-
+#### 4. Rodar os testes automatizados
 ```powershell
-.\build-installer.ps1
+cargo test
+```
+Para incluir também os testes E2E com sockets WebSocket locais:
+```powershell
+cargo test -- --include-ignored
 ```
