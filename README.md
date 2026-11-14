@@ -57,6 +57,8 @@ Ao clicar em **🖥️ Compartilhar Tela (Go Live)**, você pode escolher entre:
 
 ## 3. Mapeamento Arquitetural: Discord (`app-1.0.9267`) $\rightarrow$ Drocsid (Rust)
 
+> 📖 **Documentação técnica completa:** veja [`ARCHITECTURE.md`](ARCHITECTURE.md) para os diagramas de topologia e sequência, anatomia detalhada dos módulos Rust, protocolos binários de vídeo/voz e etapas de compilação e empacotamento.
+
 | Subsistema no Discord (`app-1.0.9267`) | Evidência REA | Equivalente no Drocsid (Rust) |
 | :--- | :--- | :--- |
 | **Shell & Bootstrapper** (`Discord.exe` + `resources/app.asar`) | `ev_a456d6cd4f4db97e213f0bcc9f7b6d5169bac97057628dfeee65d205c69dcc90`, `ev_b9a994e3f3de7c81cbc2f9ccddcaacab69ea5cd563d9bf10c8eae1382b87e704` | [`src/main.rs`](src/main.rs) + [`installer/DrocsidSetup.cs`](installer/DrocsidSetup.cs) |
