@@ -3,7 +3,7 @@
 O **Drocsid** é uma plataforma auto-hospedada e leve para comunicação por voz, texto, webcam e compartilhamento de tela (*Go Live*), escrita em **Rust** com interface **HTML/CSS/JS embutida em um único executável nativo para Windows** e sem dependência de servidores centrais proprietários.
 
 > [!NOTE]
-> Este documento reflete a base de código implementada em `v0.3.0` (incluindo o suporte responsivo para navegadores em PC e celular, persistência de segredos e Relay automático de voz), com links diretos para os arquivos do repositório.
+> Este documento reflete a base de código implementada em `v0.3.0` (incluindo o suporte responsivo para navegadores em PC e celular, persistência de segredos e Relay automático de voz), com links diretos para os arquivos do repositório. Para diretrizes de colaboração de agentes de IA (autorização prévia, não regressão e sincronização de `todo`, `ARCHITECTURE.md` e `README.md`), veja [`AGENTS.md`](AGENTS.md).
 
 ---
 
