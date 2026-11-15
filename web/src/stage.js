@@ -71,7 +71,69 @@ export async function unlockBrowserAudio() {
   if (btn) btn.style.display = "none";
 }
 
+let fullscreenListenerBound = false;
+
+function isOwnScreenCaptureActive() {
+  return Boolean(state.myScreenShareMode && state.localCaptureSurface !== "camera");
+}
+
+export function isSelfCapturePaused() {
+  return Boolean(isOwnScreenCaptureActive() && !state.selfPreviewEnabled);
+}
+
+function syncSelfPreviewControlUi() {
+  const btn = document.getElementById("btnStageSelfPreview");
+  const labelEl = document.getElementById("btnStageSelfPreviewLabel");
+  const showControl = Boolean(
+    isOwnScreenCaptureActive() &&
+    (state.gridMode || state.watchedStreamerId === state.myPeerId)
+  );
+  if (btn) {
+    btn.style.display = showControl ? "inline-flex" : "none";
+    btn.classList.toggle("active-green", Boolean(state.selfPreviewEnabled));
+  }
+  if (labelEl) {
+    labelEl.textContent = state.selfPreviewEnabled ? "Ocultar Prévia" : "Prévia";
+  }
+}
+
+export function setSelfPreviewEnabled(force) {
+  const next = typeof force === "boolean" ? force : !state.selfPreviewEnabled;
+  if (next && typeof document !== "undefined" && document.fullscreenElement && isOwnScreenCaptureActive()) {
+    state.selfPreviewEnabled = false;
+    syncSelfPreviewControlUi();
+    updateStageView();
+    showToast(
+      "Saia da Tela Cheia antes de ativar a pré-visualização da própria tela para evitar espelho infinito e tela verde.",
+      "warn"
+    );
+    return false;
+  }
+  state.selfPreviewEnabled = next;
+  updateStageView();
+  return next;
+}
+
 export function initStageResizer() {
+  if (!fullscreenListenerBound && typeof document !== "undefined") {
+    fullscreenListenerBound = true;
+    document.addEventListener("fullscreenchange", () => {
+      if (
+        document.fullscreenElement &&
+        isOwnScreenCaptureActive() &&
+        state.selfPreviewEnabled &&
+        (state.watchedStreamerId === state.myPeerId || state.gridMode)
+      ) {
+        state.selfPreviewEnabled = false;
+        updateStageView();
+        showToast(
+          "Pré-visualização pausada automaticamente na Tela Cheia para evitar espelho infinito e tela verde.",
+          "info"
+        );
+      }
+    });
+  }
+
   const resizer = document.getElementById("stageResizer");
   const stage = document.getElementById("stageContainer");
   const mainArea = document.getElementById("mainArea");
@@ -105,6 +167,9 @@ export function initStageResizer() {
 
 // ==================== Recepção de Quadros + WebCodecs V2 + Backpressure ====================
 function getActiveStageCanvas(streamerId) {
+  if (streamerId === state.myPeerId && isSelfCapturePaused()) {
+    return null;
+  }
   if (state.gridMode) {
     return document.getElementById(`grid-canvas-${streamerId}`);
   }
@@ -202,7 +267,7 @@ export function handleBinaryVideoFrame(buffer) {
   if (magic[0] === 0x44 && magic[1] === 0x56 && magic[2] === 0x46 && magic[3] === 0x02) {
     const parsed = parseServerBinaryVideoV2Header(buffer);
     if (!parsed) return;
-    if (!state.watchedStreamerId && !state.gridMode) {
+    if (!state.watchedStreamerId && !state.gridMode && (parsed.streamerId !== state.myPeerId || !isSelfCapturePaused())) {
       state.watchedStreamerId = parsed.streamerId;
       renderStreamTabs();
       updateStageView();
@@ -247,7 +312,7 @@ export function handleBinaryVideoFrame(buffer) {
 
   const parsed = parseServerBinaryVideoHeader(buffer);
   if (!parsed) return;
-  if (!state.watchedStreamerId && !state.gridMode) {
+  if (!state.watchedStreamerId && !state.gridMode && (parsed.streamerId !== state.myPeerId || !isSelfCapturePaused())) {
     state.watchedStreamerId = parsed.streamerId;
     renderStreamTabs();
     updateStageView();
@@ -305,7 +370,7 @@ export function handleNativeVideoFrame(msg) {
 }
 
 export function drawRelayFrame(streamerId, frameSeq, width, height, srcUrl, revokeBlob) {
-  if (!state.watchedStreamerId && !state.gridMode) {
+  if (!state.watchedStreamerId && !state.gridMode && (streamerId !== state.myPeerId || !isSelfCapturePaused())) {
     state.watchedStreamerId = streamerId;
     renderStreamTabs();
     updateStageView();
@@ -435,12 +500,30 @@ function buildGridTile(p) {
 }
 
 function reconcileGridTileMedia(tile, p) {
+  const existingVideo = tile.querySelector("video");
+  const existingCanvas = tile.querySelector("canvas");
+  const existingPaused = tile.querySelector(".grid-tile-paused");
+
+  if (p.peer_id === state.myPeerId && isSelfCapturePaused()) {
+    if (existingVideo) {
+      try { existingVideo.srcObject = null; } catch (_) {}
+      existingVideo.remove();
+    }
+    if (existingCanvas) existingCanvas.remove();
+    if (!existingPaused) {
+      const pausedBox = document.createElement("div");
+      pausedBox.className = "grid-tile-paused";
+      pausedBox.textContent = "Transmitindo ao vivo — prévia pausada para evitar espelho e tela verde";
+      tile.insertBefore(pausedBox, tile.firstChild);
+    }
+    return;
+  }
+
+  if (existingPaused) existingPaused.remove();
+
   const isSelfRelay = p.peer_id === state.myPeerId && p.screen_share.mode === "universal_relay" && state.localDisplayStream;
   const webrtcStream = p.screen_share.mode === "web_rtc" ? state.remoteVideoStreams.get(p.peer_id) : null;
   const targetStream = isSelfRelay ? state.localDisplayStream : webrtcStream;
-
-  const existingVideo = tile.querySelector("video");
-  const existingCanvas = tile.querySelector("canvas");
 
   if (targetStream) {
     if (existingCanvas) existingCanvas.remove();
@@ -478,6 +561,8 @@ export function updateStageView() {
   const canvasEl = document.getElementById("stageCanvas");
   const gridEl = document.getElementById("stageGrid");
   const emptyEl = document.getElementById("stageEmpty");
+  const selfNoticeEl = document.getElementById("stageSelfPreviewNotice");
+  const selfDescEl = document.getElementById("stageSelfPreviewDesc");
 
   const livePeers = Array.from(state.peers.values()).filter(p => p.screen_share);
 
@@ -485,12 +570,14 @@ export function updateStageView() {
     videoEl.style.display = "none";
     videoEl.srcObject = null;
     canvasEl.style.display = "none";
+    if (selfNoticeEl) selfNoticeEl.style.display = "none";
 
     if (livePeers.length === 0) {
       state.pinnedGridPeerId = null;
       gridEl.classList.remove("active", "has-pin");
       if (gridEl.children.length > 0) gridEl.innerHTML = "";
       emptyEl.style.display = "block";
+      syncSelfPreviewControlUi();
       return;
     }
 
@@ -545,6 +632,7 @@ export function updateStageView() {
         gridEl.insertBefore(tile, gridEl.children[idx] || null);
       }
     });
+    syncSelfPreviewControlUi();
     return;
   }
 
@@ -556,11 +644,38 @@ export function updateStageView() {
     videoEl.style.display = "none";
     videoEl.srcObject = null;
     canvasEl.style.display = "none";
+    if (selfNoticeEl) selfNoticeEl.style.display = "none";
     emptyEl.style.display = "block";
+    syncSelfPreviewControlUi();
     return;
   }
 
   emptyEl.style.display = "none";
+  const watchingOwnCapture = state.watchedStreamerId === state.myPeerId && isOwnScreenCaptureActive();
+  if (watchingOwnCapture && typeof document !== "undefined" && document.fullscreenElement && state.selfPreviewEnabled) {
+    state.selfPreviewEnabled = false;
+  }
+  if (watchingOwnCapture && !state.selfPreviewEnabled) {
+    videoEl.style.display = "none";
+    videoEl.srcObject = null;
+    canvasEl.style.display = "none";
+    if (canvasEl.width > 0 && canvasEl.height > 0) {
+      try { canvasEl.getContext("2d")?.clearRect(0, 0, canvasEl.width, canvasEl.height); } catch (_) {}
+    }
+    if (selfDescEl) {
+      const s = streamer.screen_share;
+      const modeLabel = s.mode === "native_host"
+        ? "Motor Nativo"
+        : (s.mode === "universal_relay" ? "Relay WSS" : "WebRTC");
+      selfDescEl.textContent =
+        `Transmitindo ${s.width}x${s.height} @ ${s.fps}fps (${modeLabel}). ` +
+        "Pré-visualização pausada para evitar espelho infinito, cursor duplicado e distorção verde de cor.";
+    }
+    if (selfNoticeEl) selfNoticeEl.style.display = "flex";
+    syncSelfPreviewControlUi();
+    return;
+  }
+  if (selfNoticeEl) selfNoticeEl.style.display = "none";
   const isSelfUniversalRelay =
     streamer.screen_share.mode === "universal_relay" &&
     state.watchedStreamerId === state.myPeerId &&
@@ -592,6 +707,7 @@ export function updateStageView() {
       videoEl.srcObject = null;
     }
   }
+  syncSelfPreviewControlUi();
 }
 
 export function toggleGridMode() {
@@ -731,7 +847,20 @@ export function renderWebcamStrip() {
 
 export function toggleStageFullscreen() {
   const viewport = document.getElementById("stageViewport");
+  if (!viewport) return;
   if (!document.fullscreenElement) {
+    if (
+      isOwnScreenCaptureActive() &&
+      state.selfPreviewEnabled &&
+      (state.watchedStreamerId === state.myPeerId || state.gridMode)
+    ) {
+      state.selfPreviewEnabled = false;
+      updateStageView();
+      showToast(
+        "Pré-visualização da própria tela pausada automaticamente na Tela Cheia para evitar cursor duplicado e tela verde.",
+        "info"
+      );
+    }
     viewport.requestFullscreen().catch(() => {});
   } else {
     document.exitFullscreen().catch(() => {});
@@ -762,6 +891,14 @@ export async function togglePiP() {
     try { window.documentPictureInPicture.window.close(); } catch (_) {}
     state.pipActive = false;
     updatePipButtonUi();
+    return;
+  }
+
+  if (
+    state.watchedStreamerId === state.myPeerId &&
+    isSelfCapturePaused()
+  ) {
+    showToast("Pré-visualização local pausada para evitar espelho infinito.", "info");
     return;
   }
 

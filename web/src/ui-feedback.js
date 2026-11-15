@@ -26,6 +26,7 @@ import {
   Pencil,
   Reply,
   Smile,
+  Eye,
 } from "lucide";
 import { state, sendWs } from "./state.js";
 
@@ -54,6 +55,7 @@ const LUCIDE_ICONS = {
   Pencil,
   Reply,
   Smile,
+  Eye,
 };
 
 export function renderLucideIcons(root = document) {

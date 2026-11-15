@@ -131,6 +131,7 @@
             <i data-lucide="volume-2"></i>
             <input id="stageVolumeSlider" type="range" min="0" max="100" value="100" style="width: 68px; accent-color: var(--brand); cursor: pointer;" oninput="setStageVolume(this.value)" />
           </label>
+          <button id="btnStageSelfPreview" class="btn" style="display: none; padding: 4px 8px;" onclick="setSelfPreviewEnabled()" title="Alternar pré-visualização da própria transmissão (evita espelho infinito e tela verde)"><i data-lucide="eye"></i> <span id="btnStageSelfPreviewLabel">Prévia</span></button>
           <button id="btnGridMode" class="btn" style="padding: 4px 8px;" onclick="toggleGridMode()" title="Grade Multi-Stream (até 4 telas)"><i data-lucide="grid-2x2"></i> Grade</button>
           <button id="btnLaserMode" class="btn" style="padding: 4px 8px;" onclick="toggleLaserMode()" title="Ponteiro Laser compartilhado no vídeo"><i data-lucide="crosshair"></i> Laser</button>
           <button id="btnTheaterMode" class="btn" style="padding: 4px 8px;" onclick="toggleTheaterMode()" title="Recolher chat (Modo Teatro)"><i data-lucide="clapperboard"></i> Teatro</button>
@@ -146,6 +147,17 @@
         <canvas id="stageCanvas"></canvas>
         <div id="stageGrid" class="stage-grid"></div>
         <div id="laserOverlay" class="laser-overlay"></div>
+        <div class="stage-self-preview" id="stageSelfPreviewNotice" style="display: none;">
+          <span class="stage-self-preview-badge">AO VIVO</span>
+          <h3>Você está transmitindo sua tela</h3>
+          <p id="stageSelfPreviewDesc">
+            A pré-visualização ao vivo foi pausada para evitar espelho infinito, cursor duplicado e distorção verde de cor ao capturar a própria tela.
+          </p>
+          <div class="stage-self-preview-actions">
+            <button type="button" class="btn" id="btnToggleSelfPreview" onclick="setSelfPreviewEnabled(true)"><i data-lucide="eye"></i> Mostrar Pré-visualização</button>
+            <button type="button" class="btn btn-danger" onclick="stopScreenShare()"><i data-lucide="square"></i> Parar Compartilhamento</button>
+          </div>
+        </div>
         <div class="stage-empty" id="stageEmpty">
           <h3>Compartilhamento de Tela ("Go Live") — Local & Internet</h3>
           <p>

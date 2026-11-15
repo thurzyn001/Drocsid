@@ -392,6 +392,66 @@ body {
   line-height: 1.45;
   margin-bottom: 12px;
 }
+.stage-self-preview {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  padding: 24px 28px;
+  max-width: 480px;
+  margin: 16px;
+  background: rgba(30, 31, 34, 0.94);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-normal);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  z-index: 4;
+}
+.stage-self-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: var(--danger);
+  color: #fff;
+}
+.stage-self-preview h3 {
+  margin: 0;
+  color: var(--text-header);
+  font-size: 16px;
+}
+.stage-self-preview p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.stage-self-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.grid-tile-paused {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 16px;
+  background: rgba(20, 22, 26, 0.92);
+  color: var(--text-muted);
+  font-size: 12px;
+}
 .telemetry-hud {
   display: flex;
   align-items: center;
@@ -1591,6 +1651,7 @@ body[data-density=compact] .peer-item {
             <i data-lucide="volume-2"></i>
             <input id="stageVolumeSlider" type="range" min="0" max="100" value="100" style="width: 68px; accent-color: var(--brand); cursor: pointer;" oninput="setStageVolume(this.value)" />
           </label>
+          <button id="btnStageSelfPreview" class="btn" style="display: none; padding: 4px 8px;" onclick="setSelfPreviewEnabled()" title="Alternar pré-visualização da própria transmissão (evita espelho infinito e tela verde)"><i data-lucide="eye"></i> <span id="btnStageSelfPreviewLabel">Prévia</span></button>
           <button id="btnGridMode" class="btn" style="padding: 4px 8px;" onclick="toggleGridMode()" title="Grade Multi-Stream (até 4 telas)"><i data-lucide="grid-2x2"></i> Grade</button>
           <button id="btnLaserMode" class="btn" style="padding: 4px 8px;" onclick="toggleLaserMode()" title="Ponteiro Laser compartilhado no vídeo"><i data-lucide="crosshair"></i> Laser</button>
           <button id="btnTheaterMode" class="btn" style="padding: 4px 8px;" onclick="toggleTheaterMode()" title="Recolher chat (Modo Teatro)"><i data-lucide="clapperboard"></i> Teatro</button>
@@ -1606,6 +1667,17 @@ body[data-density=compact] .peer-item {
         <canvas id="stageCanvas"></canvas>
         <div id="stageGrid" class="stage-grid"></div>
         <div id="laserOverlay" class="laser-overlay"></div>
+        <div class="stage-self-preview" id="stageSelfPreviewNotice" style="display: none;">
+          <span class="stage-self-preview-badge">AO VIVO</span>
+          <h3>Você está transmitindo sua tela</h3>
+          <p id="stageSelfPreviewDesc">
+            A pré-visualização ao vivo foi pausada para evitar espelho infinito, cursor duplicado e distorção verde de cor ao capturar a própria tela.
+          </p>
+          <div class="stage-self-preview-actions">
+            <button type="button" class="btn" id="btnToggleSelfPreview" onclick="setSelfPreviewEnabled(true)"><i data-lucide="eye"></i> Mostrar Pré-visualização</button>
+            <button type="button" class="btn btn-danger" onclick="stopScreenShare()"><i data-lucide="square"></i> Parar Compartilhamento</button>
+          </div>
+        </div>
         <div class="stage-empty" id="stageEmpty">
           <h3>Compartilhamento de Tela ("Go Live") — Local & Internet</h3>
           <p>
@@ -2000,6 +2072,9 @@ body[data-density=compact] .peer-item {
     isSpeaking: false,
     myScreenShareMode: null,
     // null | "web_rtc" | "universal_relay" | "native_host"
+    selfPreviewEnabled: false,
+    localCaptureSurface: "",
+    // "camera" | "monitor" | "window" | "browser" | "native_host" | ""
     peerConnections: /* @__PURE__ */ new Map(),
     remoteVideoStreams: /* @__PURE__ */ new Map(),
     remoteWebcamStreams: /* @__PURE__ */ new Map(),
@@ -3917,6 +3992,17 @@ body[data-density=compact] .peer-item {
     ["line", { x1: "12", x2: "12", y1: "22", y2: "18" }]
   ];
 
+  // node_modules/lucide/dist/esm/icons/eye.mjs
+  var Eye = [
+    [
+      "path",
+      {
+        d: "M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
+      }
+    ],
+    ["circle", { cx: "12", cy: "12", r: "3" }]
+  ];
+
   // node_modules/lucide/dist/esm/icons/face-slightly-smiling.mjs
   var FaceSlightlySmiling = [
     ["path", { d: "M15 10V9" }],
@@ -4175,7 +4261,8 @@ body[data-density=compact] .peer-item {
     Trash2: Trash,
     Pencil,
     Reply,
-    Smile: FaceSlightlySmiling
+    Smile: FaceSlightlySmiling,
+    Eye
   };
   function renderLucideIcons(root = document) {
     if (typeof document === "undefined" || !root) return;
@@ -11024,7 +11111,57 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     }
     if (btn) btn.style.display = "none";
   }
+  var fullscreenListenerBound = false;
+  function isOwnScreenCaptureActive() {
+    return Boolean(state.myScreenShareMode && state.localCaptureSurface !== "camera");
+  }
+  function isSelfCapturePaused() {
+    return Boolean(isOwnScreenCaptureActive() && !state.selfPreviewEnabled);
+  }
+  function syncSelfPreviewControlUi() {
+    const btn = document.getElementById("btnStageSelfPreview");
+    const labelEl = document.getElementById("btnStageSelfPreviewLabel");
+    const showControl = Boolean(
+      isOwnScreenCaptureActive() && (state.gridMode || state.watchedStreamerId === state.myPeerId)
+    );
+    if (btn) {
+      btn.style.display = showControl ? "inline-flex" : "none";
+      btn.classList.toggle("active-green", Boolean(state.selfPreviewEnabled));
+    }
+    if (labelEl) {
+      labelEl.textContent = state.selfPreviewEnabled ? "Ocultar Prévia" : "Prévia";
+    }
+  }
+  function setSelfPreviewEnabled(force) {
+    const next = typeof force === "boolean" ? force : !state.selfPreviewEnabled;
+    if (next && typeof document !== "undefined" && document.fullscreenElement && isOwnScreenCaptureActive()) {
+      state.selfPreviewEnabled = false;
+      syncSelfPreviewControlUi();
+      updateStageView();
+      showToast(
+        "Saia da Tela Cheia antes de ativar a pré-visualização da própria tela para evitar espelho infinito e tela verde.",
+        "warn"
+      );
+      return false;
+    }
+    state.selfPreviewEnabled = next;
+    updateStageView();
+    return next;
+  }
   function initStageResizer() {
+    if (!fullscreenListenerBound && typeof document !== "undefined") {
+      fullscreenListenerBound = true;
+      document.addEventListener("fullscreenchange", () => {
+        if (document.fullscreenElement && isOwnScreenCaptureActive() && state.selfPreviewEnabled && (state.watchedStreamerId === state.myPeerId || state.gridMode)) {
+          state.selfPreviewEnabled = false;
+          updateStageView();
+          showToast(
+            "Pré-visualização pausada automaticamente na Tela Cheia para evitar espelho infinito e tela verde.",
+            "info"
+          );
+        }
+      });
+    }
     const resizer = document.getElementById("stageResizer");
     const stage = document.getElementById("stageContainer");
     const mainArea = document.getElementById("mainArea");
@@ -11053,6 +11190,9 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     });
   }
   function getActiveStageCanvas(streamerId) {
+    if (streamerId === state.myPeerId && isSelfCapturePaused()) {
+      return null;
+    }
     if (state.gridMode) {
       return document.getElementById(`grid-canvas-${streamerId}`);
     }
@@ -11149,7 +11289,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     if (magic[0] === 68 && magic[1] === 86 && magic[2] === 70 && magic[3] === 2) {
       const parsed2 = parseServerBinaryVideoV2Header(buffer);
       if (!parsed2) return;
-      if (!state.watchedStreamerId && !state.gridMode) {
+      if (!state.watchedStreamerId && !state.gridMode && (parsed2.streamerId !== state.myPeerId || !isSelfCapturePaused())) {
         state.watchedStreamerId = parsed2.streamerId;
         renderStreamTabs();
         updateStageView();
@@ -11193,7 +11333,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     }
     const parsed = parseServerBinaryVideoHeader(buffer);
     if (!parsed) return;
-    if (!state.watchedStreamerId && !state.gridMode) {
+    if (!state.watchedStreamerId && !state.gridMode && (parsed.streamerId !== state.myPeerId || !isSelfCapturePaused())) {
       state.watchedStreamerId = parsed.streamerId;
       renderStreamTabs();
       updateStageView();
@@ -11251,7 +11391,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     );
   }
   function drawRelayFrame(streamerId, frameSeq, width, height, srcUrl, revokeBlob) {
-    if (!state.watchedStreamerId && !state.gridMode) {
+    if (!state.watchedStreamerId && !state.gridMode && (streamerId !== state.myPeerId || !isSelfCapturePaused())) {
       state.watchedStreamerId = streamerId;
       renderStreamTabs();
       updateStageView();
@@ -11365,11 +11505,30 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     return tile;
   }
   function reconcileGridTileMedia(tile, p) {
+    const existingVideo = tile.querySelector("video");
+    const existingCanvas = tile.querySelector("canvas");
+    const existingPaused = tile.querySelector(".grid-tile-paused");
+    if (p.peer_id === state.myPeerId && isSelfCapturePaused()) {
+      if (existingVideo) {
+        try {
+          existingVideo.srcObject = null;
+        } catch (_2) {
+        }
+        existingVideo.remove();
+      }
+      if (existingCanvas) existingCanvas.remove();
+      if (!existingPaused) {
+        const pausedBox = document.createElement("div");
+        pausedBox.className = "grid-tile-paused";
+        pausedBox.textContent = "Transmitindo ao vivo — prévia pausada para evitar espelho e tela verde";
+        tile.insertBefore(pausedBox, tile.firstChild);
+      }
+      return;
+    }
+    if (existingPaused) existingPaused.remove();
     const isSelfRelay = p.peer_id === state.myPeerId && p.screen_share.mode === "universal_relay" && state.localDisplayStream;
     const webrtcStream = p.screen_share.mode === "web_rtc" ? state.remoteVideoStreams.get(p.peer_id) : null;
     const targetStream = isSelfRelay ? state.localDisplayStream : webrtcStream;
-    const existingVideo = tile.querySelector("video");
-    const existingCanvas = tile.querySelector("canvas");
     if (targetStream) {
       if (existingCanvas) existingCanvas.remove();
       let v = existingVideo;
@@ -11408,16 +11567,20 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     const canvasEl = document.getElementById("stageCanvas");
     const gridEl = document.getElementById("stageGrid");
     const emptyEl = document.getElementById("stageEmpty");
+    const selfNoticeEl = document.getElementById("stageSelfPreviewNotice");
+    const selfDescEl = document.getElementById("stageSelfPreviewDesc");
     const livePeers = Array.from(state.peers.values()).filter((p) => p.screen_share);
     if (state.gridMode) {
       videoEl.style.display = "none";
       videoEl.srcObject = null;
       canvasEl.style.display = "none";
+      if (selfNoticeEl) selfNoticeEl.style.display = "none";
       if (livePeers.length === 0) {
         state.pinnedGridPeerId = null;
         gridEl.classList.remove("active", "has-pin");
         if (gridEl.children.length > 0) gridEl.innerHTML = "";
         emptyEl.style.display = "block";
+        syncSelfPreviewControlUi();
         return;
       }
       emptyEl.style.display = "none";
@@ -11465,6 +11628,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
           gridEl.insertBefore(tile, gridEl.children[idx] || null);
         }
       });
+      syncSelfPreviewControlUi();
       return;
     }
     gridEl.classList.remove("active", "has-pin");
@@ -11474,10 +11638,36 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
       videoEl.style.display = "none";
       videoEl.srcObject = null;
       canvasEl.style.display = "none";
+      if (selfNoticeEl) selfNoticeEl.style.display = "none";
       emptyEl.style.display = "block";
+      syncSelfPreviewControlUi();
       return;
     }
     emptyEl.style.display = "none";
+    const watchingOwnCapture = state.watchedStreamerId === state.myPeerId && isOwnScreenCaptureActive();
+    if (watchingOwnCapture && typeof document !== "undefined" && document.fullscreenElement && state.selfPreviewEnabled) {
+      state.selfPreviewEnabled = false;
+    }
+    if (watchingOwnCapture && !state.selfPreviewEnabled) {
+      videoEl.style.display = "none";
+      videoEl.srcObject = null;
+      canvasEl.style.display = "none";
+      if (canvasEl.width > 0 && canvasEl.height > 0) {
+        try {
+          canvasEl.getContext("2d")?.clearRect(0, 0, canvasEl.width, canvasEl.height);
+        } catch (_2) {
+        }
+      }
+      if (selfDescEl) {
+        const s = streamer.screen_share;
+        const modeLabel = s.mode === "native_host" ? "Motor Nativo" : s.mode === "universal_relay" ? "Relay WSS" : "WebRTC";
+        selfDescEl.textContent = `Transmitindo ${s.width}x${s.height} @ ${s.fps}fps (${modeLabel}). Pré-visualização pausada para evitar espelho infinito, cursor duplicado e distorção verde de cor.`;
+      }
+      if (selfNoticeEl) selfNoticeEl.style.display = "flex";
+      syncSelfPreviewControlUi();
+      return;
+    }
+    if (selfNoticeEl) selfNoticeEl.style.display = "none";
     const isSelfUniversalRelay = streamer.screen_share.mode === "universal_relay" && state.watchedStreamerId === state.myPeerId && state.localDisplayStream;
     if (isSelfUniversalRelay) {
       canvasEl.style.display = "none";
@@ -11505,6 +11695,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
         videoEl.srcObject = null;
       }
     }
+    syncSelfPreviewControlUi();
   }
   function toggleGridMode() {
     state.gridMode = !state.gridMode;
@@ -11639,7 +11830,16 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
   }
   function toggleStageFullscreen() {
     const viewport = document.getElementById("stageViewport");
+    if (!viewport) return;
     if (!document.fullscreenElement) {
+      if (isOwnScreenCaptureActive() && state.selfPreviewEnabled && (state.watchedStreamerId === state.myPeerId || state.gridMode)) {
+        state.selfPreviewEnabled = false;
+        updateStageView();
+        showToast(
+          "Pré-visualização da própria tela pausada automaticamente na Tela Cheia para evitar cursor duplicado e tela verde.",
+          "info"
+        );
+      }
       viewport.requestFullscreen().catch(() => {
       });
     } else {
@@ -11673,6 +11873,10 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
       }
       state.pipActive = false;
       updatePipButtonUi();
+      return;
+    }
+    if (state.watchedStreamerId === state.myPeerId && isSelfCapturePaused()) {
+      showToast("Pré-visualização local pausada para evitar espelho infinito.", "info");
       return;
     }
     if (videoEl && videoEl.style.display !== "none" && videoEl.srcObject) {
@@ -12012,7 +12216,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
           height: { ideal: height },
           frameRate: { ideal: fps, max: fps }
         },
-        audio: wantAudio
+        audio: wantAudio,
+        selfBrowserSurface: "exclude"
       });
     } catch (err) {
       if (err && err.name === "NotAllowedError") {
@@ -12046,12 +12251,16 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
       try {
         state.localDisplayStream = await acquireBrowserStageStream(width, height, fps, wantAudio);
         const videoTrack = state.localDisplayStream.getVideoTracks()[0];
-        const settings = videoTrack.getSettings();
+        const settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
+        const sourceKind = document.getElementById("selectCaptureSource")?.value || "display";
+        const isCameraCapture = sourceKind === "camera_env" || sourceKind === "camera_user" || Boolean(settings.facingMode && !settings.displaySurface);
         const sourceName = videoTrack.label || "Tela / Câmera";
         videoTrack.onended = () => {
           stopScreenShare();
         };
         state.myScreenShareMode = state.selectedShareMode;
+        state.localCaptureSurface = isCameraCapture ? "camera" : settings.displaySurface || "monitor";
+        state.selfPreviewEnabled = isCameraCapture;
         updateGoLiveButtonState(true);
         state.watchedStreamerId = state.myPeerId;
         sendWs({
@@ -12089,6 +12298,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
         name: `Tela ${state.selectedMonitorIndex + 1} (Rust GDI)`
       };
       state.myScreenShareMode = "native_host";
+      state.localCaptureSurface = "native_host";
+      state.selfPreviewEnabled = false;
       updateGoLiveButtonState(true);
       state.watchedStreamerId = state.myPeerId;
       sendWs({
@@ -12240,6 +12451,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     }
     state.remoteVideoStreams.delete(state.myPeerId);
     state.myScreenShareMode = null;
+    state.selfPreviewEnabled = false;
+    state.localCaptureSurface = "";
     updateGoLiveButtonState(false);
     sendWs({ type: "stop_screen_share" });
     await hooks8.renegotiateAllPeers();
@@ -12412,6 +12625,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
           state.localDisplayStream = null;
         }
         state.myScreenShareMode = null;
+        state.selfPreviewEnabled = false;
+        state.localCaptureSurface = "";
         updateGoLiveButtonState(false);
       }
       renderPeers();
@@ -12804,6 +13019,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     togglePinGridPeer,
     toggleLaserMode,
     toggleTheaterMode,
+    setSelfPreviewEnabled,
     togglePiP,
     toggleStageFullscreen,
     sendSoundEffect,
@@ -12846,6 +13062,7 @@ lucide/dist/esm/replaceElement.mjs:
 lucide/dist/esm/icons/clapperboard.mjs:
 lucide/dist/esm/icons/copy.mjs:
 lucide/dist/esm/icons/crosshair.mjs:
+lucide/dist/esm/icons/eye.mjs:
 lucide/dist/esm/icons/face-slightly-smiling.mjs:
 lucide/dist/esm/icons/globe.mjs:
 lucide/dist/esm/icons/grid-2x2.mjs:

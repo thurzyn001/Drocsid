@@ -168,6 +168,8 @@ export function connectWebSocket() {
         state.localDisplayStream = null;
       }
       state.myScreenShareMode = null;
+      state.selfPreviewEnabled = false;
+      state.localCaptureSurface = "";
       updateGoLiveButtonState(false);
     }
     renderPeers();

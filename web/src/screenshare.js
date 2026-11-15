@@ -231,7 +231,8 @@ export async function acquireBrowserStageStream(width, height, fps, wantAudio) {
         height: { ideal: height },
         frameRate: { ideal: fps, max: fps }
       },
-      audio: wantAudio
+      audio: wantAudio,
+      selfBrowserSurface: "exclude"
     });
   } catch (err) {
     if (err && err.name === "NotAllowedError") {
@@ -270,7 +271,12 @@ export async function confirmStartScreenShare() {
       state.localDisplayStream = await acquireBrowserStageStream(width, height, fps, wantAudio);
 
       const videoTrack = state.localDisplayStream.getVideoTracks()[0];
-      const settings = videoTrack.getSettings();
+      const settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
+      const sourceKind = document.getElementById("selectCaptureSource")?.value || "display";
+      const isCameraCapture =
+        sourceKind === "camera_env" ||
+        sourceKind === "camera_user" ||
+        Boolean(settings.facingMode && !settings.displaySurface);
       const sourceName = videoTrack.label || "Tela / Câmera";
 
       videoTrack.onended = () => {
@@ -278,6 +284,8 @@ export async function confirmStartScreenShare() {
       };
 
       state.myScreenShareMode = state.selectedShareMode;
+      state.localCaptureSurface = isCameraCapture ? "camera" : (settings.displaySurface || "monitor");
+      state.selfPreviewEnabled = isCameraCapture;
       updateGoLiveButtonState(true);
 
       state.watchedStreamerId = state.myPeerId;
@@ -319,6 +327,8 @@ export async function confirmStartScreenShare() {
     };
 
     state.myScreenShareMode = "native_host";
+    state.localCaptureSurface = "native_host";
+    state.selfPreviewEnabled = false;
     updateGoLiveButtonState(true);
     state.watchedStreamerId = state.myPeerId;
 
@@ -468,6 +478,8 @@ export async function stopScreenShare() {
   }
   state.remoteVideoStreams.delete(state.myPeerId);
   state.myScreenShareMode = null;
+  state.selfPreviewEnabled = false;
+  state.localCaptureSurface = "";
   updateGoLiveButtonState(false);
 
   sendWs({ type: "stop_screen_share" });

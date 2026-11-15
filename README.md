@@ -50,7 +50,7 @@ Ao clicar em **🖥️ Compartilhar Tela (Go Live)**, você pode escolher entre:
 
 ### Recursos Extras na v0.4.0
 - **🎙️ Voz Avançada:** cancelamento de ruído por IA (**RNNoise WASM**), captura em `AudioWorklet`, Relay **Opus V2 (`DAP\x02`/`DAF\x02`)** com fallback automático para **μ-law**, medidor **VU Meter**, **Teste de Mic** e **Push-to-Talk configurável** (incluindo atalho global no Windows).
-- **⊞ Palco Completo:** **Grade Multi-Stream (até 4 telas)** sem flicker, **🎭 Modo Teatro**, **Picture-in-Picture** (inclusive via Canvas nos Modos 2 e 3), **🎯 Ponteiro Laser**, **📷 Webcam** e divisória palco/chat arrastável.
+- **⊞ Palco Completo:** **Grade Multi-Stream (até 4 telas)** sem flicker, **🎭 Modo Teatro**, **Picture-in-Picture** (inclusive via Canvas nos Modos 2 e 3), **🎯 Ponteiro Laser**, **📷 Webcam**, proteção anti-espelho infinito/tela verde ao compartilhar a própria tela (prévia pausada por padrão e protegida na **Tela Cheia**) e divisória palco/chat arrastável.
 - **💬 Chat Rico & Upload Seguro:** Markdown completo (`marked` + `DOMPurify`), respostas, reações por emoji, edição/exclusão, **anexar/arrastar/colar imagens e GIFs animados** (`POST /api/upload` / `GET /api/media/:id`) com *lightbox* e **🔊 Soundboard**.
 - **🌐 Convite Prático:** **QR Code offline** para celular, botão **⏹️ Parar Túnel**, alerta de versão diferente no `Welcome`, monitor de saúde SSH e menu completo na bandeja do Windows.
 - **🛡️ Moderação & Controle do Anfitrião:** rotação de chave (**🔑**), **Server Mute** (**🔇/🎙️**), **Expulsar (`🚫`)** ou **Banir IP/Sessão (`⛔`)** + **Desbanir Todos**, **Trancar Sala (`🔒/🔓`)** com banner de aprovação, **Excluir Salas (`🗑️`)** e **Limpar Chat (`🧹`)**.

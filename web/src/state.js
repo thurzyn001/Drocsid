@@ -96,6 +96,8 @@ export const state = {
   selfDeaf: false,
   isSpeaking: false,
   myScreenShareMode: null, // null | "web_rtc" | "universal_relay" | "native_host"
+  selfPreviewEnabled: false,
+  localCaptureSurface: "", // "camera" | "monitor" | "window" | "browser" | "native_host" | ""
 
   peerConnections: new Map(),
   remoteVideoStreams: new Map(),

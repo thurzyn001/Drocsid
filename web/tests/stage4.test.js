@@ -22,6 +22,7 @@ import {
 } from "../src/audio-codec.js";
 import { applyRoleVisibility } from "../src/invite.js";
 import { isSelfServerMuted, toggleMute, syncLocalAudioEnabled } from "../src/voice.js";
+import { updateStageView, setSelfPreviewEnabled, toggleStageFullscreen } from "../src/stage.js";
 
 const templatePath = path.resolve(__dirname, "..", "template.html");
 
@@ -66,6 +67,13 @@ describe("Etapa 4: Mídia `/api/media`, Áudio do Palco `:stage` e Moderação d
     state.voiceRelayInboundPeers.clear();
     state.voicePlaybackCtx = null;
     state.localAudioStream = null;
+    state.myScreenShareMode = null;
+    state.selfPreviewEnabled = false;
+    state.localCaptureSurface = "";
+    state.watchedStreamerId = null;
+    state.gridMode = false;
+    state.remoteVideoStreams.clear();
+    state.localDisplayStream = null;
   });
 
   afterEach(() => {
@@ -180,5 +188,68 @@ describe("Etapa 4: Mídia `/api/media`, Áudio do Palco `:stage` e Moderação d
     toggleMute();
     expect(state.selfMute).toBe(false);
     expect(track.enabled).toBe(false);
+  });
+
+  it("pausa auto-prévia em captura de tela e desativa prévia ao entrar em Tela Cheia", () => {
+    const fakeStream = { id: "disp-1" };
+    state.myScreenShareMode = "web_rtc";
+    state.localCaptureSurface = "monitor";
+    state.selfPreviewEnabled = false;
+    state.watchedStreamerId = "me";
+    state.remoteVideoStreams.set("me", fakeStream);
+    state.peers.set("me", {
+      peer_id: "me",
+      username: "Amigo-300",
+      screen_share: { mode: "web_rtc", width: 1920, height: 1080, fps: 30 },
+    });
+
+    const videoEl = document.getElementById("stageVideo");
+    const noticeEl = document.getElementById("stageSelfPreviewNotice");
+    const canvasEl = document.getElementById("stageCanvas");
+    const viewport = document.getElementById("stageViewport");
+    canvasEl.getContext = vi.fn(() => ({ clearRect: vi.fn() }));
+    viewport.requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    videoEl.play = vi.fn().mockResolvedValue(undefined);
+
+    updateStageView();
+    expect(noticeEl.style.display).toBe("flex");
+    expect(videoEl.style.display).toBe("none");
+    expect(videoEl.srcObject).toBeNull();
+    expect(document.getElementById("btnStageSelfPreview").style.display).toBe("inline-flex");
+
+    expect(setSelfPreviewEnabled(true)).toBe(true);
+    expect(noticeEl.style.display).toBe("none");
+    expect(videoEl.style.display).toBe("block");
+    expect(videoEl.srcObject).toBe(fakeStream);
+
+    toggleStageFullscreen();
+    expect(state.selfPreviewEnabled).toBe(false);
+    expect(noticeEl.style.display).toBe("flex");
+    expect(videoEl.srcObject).toBeNull();
+    expect(viewport.requestFullscreen).toHaveBeenCalledTimes(1);
+  });
+
+  it("mantém pré-visualização ativa quando a fonte capturada é câmera", () => {
+    const camStream = { id: "cam-1" };
+    state.myScreenShareMode = "web_rtc";
+    state.localCaptureSurface = "camera";
+    state.selfPreviewEnabled = true;
+    state.watchedStreamerId = "me";
+    state.remoteVideoStreams.set("me", camStream);
+    state.peers.set("me", {
+      peer_id: "me",
+      username: "Celular",
+      screen_share: { mode: "web_rtc", width: 1280, height: 720, fps: 30 },
+    });
+
+    const videoEl = document.getElementById("stageVideo");
+    const noticeEl = document.getElementById("stageSelfPreviewNotice");
+    videoEl.play = vi.fn().mockResolvedValue(undefined);
+
+    updateStageView();
+    expect(noticeEl.style.display).toBe("none");
+    expect(videoEl.style.display).toBe("block");
+    expect(videoEl.srcObject).toBe(camStream);
+    expect(document.getElementById("btnStageSelfPreview").style.display).toBe("none");
   });
 });
