@@ -1,6 +1,6 @@
 # Drocsid — Alternativa Leve ao Discord em Rust (Chat, Voz & Go Live na Internet)
 
-O **Drocsid** é uma recriação enxuta e auto-hospedável em **Rust** (`axum` + `tokio` + `Win32 GDI` + `WebRTC` + `Cloudflare/SSH Tunnel`), construída a partir da engenharia reversa da instalação local do **Discord (`app-1.0.9267`)** realizada com o **REA (`morluto/rea`)**.
+O **Drocsid** é uma recriação enxuta e auto-hospedável em **Rust** (`axum` + `tokio` + `DXGI/Win32 GDI` + `WASAPI Loopback` + `WebRTC/WebCodecs` + `Cloudflare/SSH Tunnel`), construída a partir da engenharia reversa da instalação local do **Discord (`app-1.0.9267`)** realizada com o **REA (`morluto/rea`)**.
 
 Ele traz:
 - **Compartilhamento de Tela ("Go Live")** em **720p, 1080p ou 1440p a até 60 FPS com áudio do sistema**, sem paywalls.
@@ -36,22 +36,24 @@ Seus amigos têm **duas opções**:
 
 ---
 
-## 2. Os 3 Motores de Compartilhamento de Tela ("Go Live") e Recursos (v0.3.0)
+## 2. Os 3 Motores de Compartilhamento de Tela ("Go Live") e Recursos (v0.4.0)
 
 Ao clicar em **🖥️ Compartilhar Tela (Go Live)**, você pode escolher entre:
 
 1. **⚡ Modo 1: WebRTC + STUN/TURN (Até 60 FPS + Áudio do Sistema)**
    - Usa `getDisplayMedia` + servidores STUN públicos para transmitir tela inteira, janela de jogo ou aba em **720p/1080p/1440p a 30 ou 60 FPS** com áudio do sistema (`soundshare_loopback`).
    - Você pode configurar um servidor **TURN próprio** (botão **⚙️ TURN** na barra lateral) para redes com NAT restrito. Se a conexão ICE WebRTC falhar para um amigo, o Drocsid alterna automaticamente para o **Modo 2 (Relay Universal)** para que a transmissão continue.
-2. **🌐 Modo 2: Relay Universal Internet (Anti-CGNAT com Frames Binários + Qualidade Adaptativa)**
-   - Alternativa para redes com UDP bloqueado: transmite quadros JPEG em pacotes WebSocket binários (`DVP`/`DVF`) com ajuste automático de qualidade/largura conforme a fila da conexão, controle de **backpressure** (`SignalVideoOutputSinkReady`) e áudio do sistema via WebRTC quando disponível.
-3. **🦀 Modo 3: Motor Nativo em Rust (`discord_voice.node` Style)**
-   - Captura **monitores inteiros ou janelas específicas** diretamente do processo Rust do anfitrião no Windows (`EnumDisplayMonitors`/`BitBlt` e `PrintWindow` com `PW_RENDERFULLCONTENT` em [`src/capture.rs`](src/capture.rs)) e entrega quadros binários com o protocolo `SignalVideoOutputSinkReady`.
+2. **🌐 Modo 2: Relay Universal Internet (`WebCodecs VP8` + Fallback JPEG Adaptativo)**
+   - Alternativa para redes com UDP bloqueado: negocia automaticamente **WebCodecs VP8 (`DVP\x02`/`DVF\x02`)** quando todos os pares na sala suportam o codec, ou fallback **JPEG (`DVP\x01`/`DVF\x01`)** decodificado com `createImageBitmap`, ajuste adaptativo conforme a fila da conexão e controle de **backpressure** (`SignalVideoOutputSinkReady`).
+3. **🦀 Modo 3: Motor Nativo em Rust (`DXGI 60 FPS` + `WASAPI Loopback`)**
+   - Captura **monitores inteiros** via **DXGI Desktop Duplication** a até **60 FPS reais** (com detecção de quadros estáticos e fallback automático para **Win32 GDI**) ou **janelas específicas** (`PrintWindow`/`BitBlt` em [`src/capture.rs`](src/capture.rs)) e, quando habilitado, transmite também o **áudio do sistema via WASAPI Loopback** reamostrado para **24 kHz** ([`src/audio_capture.rs`](src/audio_capture.rs)) com controle de volume independente no palco.
 
-### Recursos Extras na v0.3.0
-- **⊞ Grade Multi-Stream (até 4 telas)**, **🎭 Modo Teatro** e divisória palco/chat arrastável.
-- **🎯 Ponteiro Laser compartilhado**, **📷 Webcam na chamada**, **🔊 Soundboard sintetizado** e **Ctrl+V** para enviar prints comprimidos no chat (além de `**negrito**`, `` `código` `` e atalhos `Ctrl+M` / `Ctrl+D`).
-- **🔑 Rotação de chave de sala**, botão de expulsar participante (anfitrião) e desinstalador com opção de manter ou apagar dados.
+### Recursos Extras na v0.4.0
+- **🎙️ Voz Avançada:** cancelamento de ruído por IA (**RNNoise WASM**), captura em `AudioWorklet`, Relay **Opus V2 (`DAP\x02`/`DAF\x02`)** com fallback automático para **μ-law**, medidor **VU Meter**, **Teste de Mic** e **Push-to-Talk configurável** (incluindo atalho global no Windows).
+- **⊞ Palco Completo:** **Grade Multi-Stream (até 4 telas)** sem flicker, **🎭 Modo Teatro**, **Picture-in-Picture** (inclusive via Canvas nos Modos 2 e 3), **🎯 Ponteiro Laser**, **📷 Webcam** e divisória palco/chat arrastável.
+- **💬 Chat Rico & Upload Seguro:** Markdown completo (`marked` + `DOMPurify`), respostas, reações por emoji, edição/exclusão, **anexar/arrastar/colar imagens e GIFs animados** (`POST /api/upload` / `GET /api/media/:id`) com *lightbox* e **🔊 Soundboard**.
+- **🌐 Convite Prático:** **QR Code offline** para celular, botão **⏹️ Parar Túnel**, alerta de versão diferente no `Welcome`, monitor de saúde SSH e menu completo na bandeja do Windows.
+- **🛡️ Moderação & Controle do Anfitrião:** rotação de chave (**🔑**), **Server Mute** (**🔇/🎙️**), **Expulsar (`🚫`)** ou **Banir IP/Sessão (`⛔`)** + **Desbanir Todos**, **Trancar Sala (`🔒/🔓`)** com banner de aprovação, **Excluir Salas (`🗑️`)** e **Limpar Chat (`🧹`)**.
 
 ---
 
@@ -105,9 +107,15 @@ cargo run --release
 
 #### 4. Rodar os testes automatizados
 ```powershell
-cargo test
+cargo test --offline
 ```
 Para incluir também os testes E2E com sockets WebSocket locais:
 ```powershell
 cargo test -- --include-ignored
+```
+Para validar e testar o front-end modular (`web/` $\rightarrow$ `src/ui.html`):
+```powershell
+npm run build
+npm run check
+npm test
 ```

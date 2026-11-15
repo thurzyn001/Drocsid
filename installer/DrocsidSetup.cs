@@ -10,7 +10,7 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Instalador do Drocsid")]
 [assembly: AssemblyDescription("Instalador oficial do Drocsid - Chat, Voz & Compartilhamento de Tela")]
 [assembly: AssemblyProduct("Drocsid")]
-[assembly: AssemblyVersion("0.3.0.0")]
+[assembly: AssemblyVersion("0.4.0.0")]
 
 namespace DrocsidInstaller
 {
@@ -27,7 +27,7 @@ namespace DrocsidInstaller
 
         public SetupForm()
         {
-            this.Text = "Instalador do Drocsid v0.3.0";
+            this.Text = "Instalador do Drocsid v0.4.0";
             this.Size = new Size(520, 390);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -344,7 +344,7 @@ namespace DrocsidInstaller
                     if (key != null)
                     {
                         key.SetValue("DisplayName", "Drocsid — Chat, Voz & Go Live");
-                        key.SetValue("DisplayVersion", "0.3.0");
+                        key.SetValue("DisplayVersion", "0.4.0");
                         key.SetValue("Publisher", "Drocsid Open Project");
                         key.SetValue("DisplayIcon", exePath);
                         key.SetValue("InstallLocation", installDir);

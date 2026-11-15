@@ -1,4 +1,4 @@
-﻿use std::{
+use std::{
     io::Read,
     path::{Path, PathBuf},
     process::Stdio,
@@ -207,7 +207,7 @@ impl TunnelManager {
         Err("O processo cloudflared encerrou antes de emitir a URL".to_string())
     }
 
-    async fn launch_ssh_localhost_run(&self) -> Result<(), String> {
+    async fn launch_ssh_localhost_run(self: &Arc<Self>) -> Result<(), String> {
         info!("Iniciando túnel via OpenSSH (localhost.run)...");
         {
             let mut st = self.status.write().await;
@@ -248,8 +248,17 @@ impl TunnelManager {
             .stdout
             .take()
             .ok_or_else(|| "Sem stdout do ssh".to_string())?;
+        let stderr = child.stderr.take();
 
         *self.child.write().await = Some(child);
+
+        // Drena stderr continuamente para evitar deadlock/BrokenPipe no processo ssh
+        if let Some(err_stream) = stderr {
+            tokio::spawn(async move {
+                let mut err_reader = BufReader::new(err_stream).lines();
+                while let Ok(Some(_)) = err_reader.next_line().await {}
+            });
+        }
 
         let room_key = self.room_key.read().await.clone();
         let read_fut = async {
@@ -263,13 +272,31 @@ impl TunnelManager {
                     let invite = inv.code();
                     let invite_link = inv.link();
                     info!("Túnel SSH ativo: {}", url);
-                    let mut st = self.status.write().await;
-                    st.active = true;
-                    st.provider = "OpenSSH (localhost.run)".to_string();
-                    st.public_url = Some(url);
-                    st.invite_code = Some(invite);
-                    st.invite_link = Some(invite_link);
-                    st.status_message = "Online na Internet via SSH Tunnel!".to_string();
+                    {
+                        let mut st = self.status.write().await;
+                        st.active = true;
+                        st.provider = "OpenSSH (localhost.run)".to_string();
+                        st.public_url = Some(url.clone());
+                        st.invite_code = Some(invite);
+                        st.invite_link = Some(invite_link);
+                        st.status_message = "Online na Internet via SSH Tunnel!".to_string();
+                    }
+
+                    // Continua drenando stdout e detecta queda inesperada do processo SSH
+                    let mgr = self.clone();
+                    let active_url = url;
+                    tokio::spawn(async move {
+                        while let Ok(Some(_)) = reader.next_line().await {}
+                        let mut st = mgr.status.write().await;
+                        if st.active && st.public_url.as_deref() == Some(active_url.as_str()) {
+                            warn!("Processo OpenSSH (localhost.run) encerrou inesperadamente.");
+                            st.active = false;
+                            st.provider = "error".to_string();
+                            st.status_message =
+                                "O túnel SSH encerrou inesperadamente. Clique em 'Gerar Convite' para reconectar."
+                                    .to_string();
+                        }
+                    });
                     return Ok(());
                 }
             }

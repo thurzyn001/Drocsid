@@ -1,0 +1,23 @@
+{
+  "name": "drocsid-web",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node web/build.mjs",
+    "test": "vitest run",
+    "check": "node web/build.mjs --check"
+  },
+  "dependencies": {
+    "@sapphi-red/web-noise-suppressor": "^0.4.1",
+    "dompurify": "^3.4.18",
+    "lucide": "^1.73.0",
+    "marked": "^18.2.0",
+    "qrcode-generator": "^2.0.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsdom": "^26.1.0",
+    "vitest": "^5.1.0"
+  }
+}

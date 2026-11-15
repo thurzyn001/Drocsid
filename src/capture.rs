@@ -56,6 +56,8 @@ mod win32 {
     pub const DIB_RGB_COLORS: UINT = 0;
     pub const MONITORINFOF_PRIMARY: DWORD = 0x00000001;
     pub const HALFTONE: i32 = 4;
+    pub const GWL_EXSTYLE: i32 = -20;
+    pub const WS_EX_TOOLWINDOW: i32 = 0x0000_0080;
 
     #[repr(C)]
     #[derive(Clone, Copy, Default)]
@@ -140,6 +142,8 @@ mod win32 {
         pub fn EnumWindows(lp_enum_func: WndEnumProc, l_param: LPARAM) -> BOOL;
         pub fn IsWindowVisible(hwnd: HWND) -> BOOL;
         pub fn IsIconic(hwnd: HWND) -> BOOL;
+        pub fn GetForegroundWindow() -> HWND;
+        pub fn GetWindowLongW(hwnd: HWND, n_index: i32) -> i32;
         pub fn GetWindowTextLengthW(hwnd: HWND) -> i32;
         pub fn GetWindowTextW(hwnd: HWND, lp_string: *mut u16, n_max_count: i32) -> i32;
         pub fn GetWindowRect(hwnd: HWND, lp_rect: *mut RECT) -> BOOL;
@@ -513,14 +517,17 @@ pub fn capture_monitor_jpeg(
     Ok((w, h, BASE64.encode(&bytes)))
 }
 
-/// Enumera janelas visíveis capturáveis (T-3: suporte a captura de janela específica via PrintWindow).
+/// Enumera janelas visíveis capturáveis (T-3 + Etapa 4: filtra tool windows, prioriza foco/área).
 #[cfg(windows)]
 pub fn enumerate_capturable_windows() -> Vec<(usize, String, u32, u32)> {
-    use std::ffi::c_void;
     use win32::*;
 
     unsafe extern "system" fn enum_wnd(hwnd: HWND, lparam: LPARAM) -> BOOL {
         if IsWindowVisible(hwnd) == 0 || IsIconic(hwnd) != 0 {
+            return 1;
+        }
+        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+        if (ex_style & WS_EX_TOOLWINDOW) != 0 {
             return 1;
         }
         let len = GetWindowTextLengthW(hwnd);
@@ -533,7 +540,12 @@ pub fn enumerate_capturable_windows() -> Vec<(usize, String, u32, u32)> {
             return 1;
         }
         let title = String::from_utf16_lossy(&buf[..copied as usize]).trim().to_string();
-        if title.is_empty() || title == "Program Manager" || title == "Windows Input Experience" {
+        if title.is_empty()
+            || title == "Program Manager"
+            || title == "Windows Input Experience"
+            || title == "Microsoft Text Input Application"
+            || title == "NVIDIA GeForce Overlay"
+        {
             return 1;
         }
         let mut rect = RECT::default();
@@ -551,28 +563,41 @@ pub fn enumerate_capturable_windows() -> Vec<(usize, String, u32, u32)> {
     }
 
     let mut windows: Vec<(usize, String, u32, u32)> = Vec::new();
-    unsafe {
+    let fg_hwnd = unsafe {
         EnumWindows(
             enum_wnd,
             (&mut windows as *mut Vec<(usize, String, u32, u32)>) as LPARAM,
         );
-    }
-    let _ = std::ptr::null::<c_void>();
-    windows.truncate(8);
+        GetForegroundWindow() as usize
+    };
+    windows.sort_by(|a, b| {
+        let a_fg = a.0 == fg_hwnd;
+        let b_fg = b.0 == fg_hwnd;
+        b_fg.cmp(&a_fg)
+            .then_with(|| ((b.2 as u64) * (b.3 as u64)).cmp(&((a.2 as u64) * (a.3 as u64))))
+    });
+    windows.truncate(16);
     windows
 }
 
-/// Captura uma janela específica usando `PrintWindow(..., PW_RENDERFULLCONTENT)` (com fallback `BitBlt`).
+/// Captura uma janela específica usando `PrintWindow(..., PW_RENDERFULLCONTENT)` (com fallback `BitBlt`)
+/// e reuso de buffers `thread_local!` para reduzir alocações por quadro.
 #[cfg(windows)]
 pub fn capture_window_jpeg_bytes(
     hwnd_val: usize,
     max_width: u32,
     quality: u8,
 ) -> Result<(u32, u32, Vec<u8>), String> {
+    use std::cell::RefCell;
     use std::ffi::c_void;
     use std::mem::size_of;
     use std::ptr::null_mut;
     use win32::*;
+
+    thread_local! {
+        static WIN_BGRA_BUF: RefCell<Vec<u8>> = RefCell::new(Vec::new());
+        static WIN_RGB_BUF: RefCell<Vec<u8>> = RefCell::new(Vec::new());
+    }
 
     let hwnd = hwnd_val as HWND;
     unsafe {
@@ -647,20 +672,24 @@ pub fn capture_window_jpeg_bytes(
         bmi.bmi_header.bi_bit_count = 32;
         bmi.bmi_header.bi_compression = BI_RGB;
 
-        let mut bgra_buf = vec![0u8; (target_w as usize) * (target_h as usize) * 4];
-        let lines = if st_ok != 0 {
-            GetDIBits(
-                scaled_dc,
-                scaled_bmp,
-                0,
-                target_h,
-                bgra_buf.as_mut_ptr() as *mut c_void,
-                &mut bmi,
-                DIB_RGB_COLORS,
-            )
-        } else {
-            0
-        };
+        let needed_bgra = (target_w as usize) * (target_h as usize) * 4;
+        let lines = WIN_BGRA_BUF.with(|cell| {
+            let mut buf = cell.borrow_mut();
+            buf.resize(needed_bgra, 0);
+            if st_ok != 0 {
+                GetDIBits(
+                    scaled_dc,
+                    scaled_bmp,
+                    0,
+                    target_h,
+                    buf.as_mut_ptr() as *mut c_void,
+                    &mut bmi,
+                    DIB_RGB_COLORS,
+                )
+            } else {
+                0
+            }
+        });
 
         SelectObject(scaled_dc, old_scaled);
         DeleteObject(scaled_bmp);
@@ -674,12 +703,17 @@ pub fn capture_window_jpeg_bytes(
             return Err("Falha ao extrair bits da janela".to_string());
         }
 
-        let rgb_buf = bgra_to_rgb(&bgra_buf);
         let mut jpeg_bytes = Vec::with_capacity((target_w * target_h) as usize / 2);
-        let encoder = Encoder::new(&mut jpeg_bytes, quality.clamp(20, 95));
-        encoder
-            .encode(&rgb_buf, target_w as u16, target_h as u16, ColorType::Rgb)
-            .map_err(|e| format!("Erro na codificação JPEG da janela: {e}"))?;
+        let encode_res = WIN_BGRA_BUF.with(|b_cell| {
+            WIN_RGB_BUF.with(|r_cell| {
+                let bgra = b_cell.borrow();
+                let mut rgb = r_cell.borrow_mut();
+                bgra_to_rgb_into(&bgra, &mut rgb);
+                let encoder = Encoder::new(&mut jpeg_bytes, quality.clamp(20, 95));
+                encoder.encode(&rgb, target_w as u16, target_h as u16, ColorType::Rgb)
+            })
+        });
+        encode_res.map_err(|e| format!("Erro na codificação JPEG da janela: {e}"))?;
 
         Ok((target_w, target_h, jpeg_bytes))
     }
@@ -724,14 +758,6 @@ fn bgra_to_rgb_into(src_bgra: &[u8], dst_rgb: &mut Vec<u8>) {
         dst_rgb.push(px[1]); // G
         dst_rgb.push(px[0]); // B
     }
-}
-
-/// Converte um buffer BGRA (32-bit do GDI) direto para RGB (24-bit) sem reamostragem.
-#[cfg(windows)]
-fn bgra_to_rgb(src_bgra: &[u8]) -> Vec<u8> {
-    let mut out = Vec::new();
-    bgra_to_rgb_into(src_bgra, &mut out);
-    out
 }
 
 /// Converte um buffer BGRA (32-bit do GDI) para RGB (24-bit) com amostragem rápida.
@@ -814,4 +840,441 @@ pub fn get_screen_previews(thumb_width: u32) -> Vec<DesktopSourcePreview> {
     }
 
     previews
+}
+
+/// Resultado de um tick de captura nativa contínua (`NativeCaptureSession`).
+pub enum NativeCaptureTick {
+    Frame {
+        width: u32,
+        height: u32,
+        jpeg_bytes: Vec<u8>,
+    },
+    Unchanged,
+}
+
+/// Hash FNV-1a amostrado ultra-rápido para detectar quadros estáticos sem gastar CPU/banda.
+pub fn sample_bytes_signature(data: &[u8], tag: u64) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64 ^ tag;
+    if data.is_empty() {
+        return hash;
+    }
+    let step = (data.len() / 2048).max(1);
+    let mut i = 0usize;
+    while i < data.len() {
+        hash ^= data[i] as u64;
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+        i += step;
+    }
+    hash ^= data.len() as u64;
+    hash
+}
+
+#[cfg(windows)]
+fn cursor_pos_on_monitor(mon: &MonitorRect) -> Option<(i32, i32)> {
+    use std::mem::size_of;
+    use std::ptr::null_mut;
+    use win32::*;
+    unsafe {
+        let mut ci = CURSORINFO {
+            cb_size: size_of::<CURSORINFO>() as DWORD,
+            flags: 0,
+            h_cursor: null_mut(),
+            pt_screen_pos: POINT::default(),
+        };
+        if GetCursorInfo(&mut ci) == 0 || (ci.flags & CURSOR_SHOWING) == 0 {
+            return None;
+        }
+        let rx = ci.pt_screen_pos.x - mon.x;
+        let ry = ci.pt_screen_pos.y - mon.y;
+        if rx >= 0 && ry >= 0 && rx < mon.width as i32 && ry < mon.height as i32 {
+            Some((rx, ry))
+        } else {
+            None
+        }
+    }
+}
+
+/// Desenha um pequeno ponteiro vetorial de alto contraste diretamente no buffer RGB escalado.
+fn draw_rgb_cursor_arrow(rgb: &mut [u8], w: u32, h: u32, cx: i32, cy: i32) {
+    // Bitmap compacto 8x12: 0 transparente, 1 contorno preto, 2 preenchimento branco
+    const ARROW: [[u8; 8]; 12] = [
+        [1, 0, 0, 0, 0, 0, 0, 0],
+        [1, 1, 0, 0, 0, 0, 0, 0],
+        [1, 2, 1, 0, 0, 0, 0, 0],
+        [1, 2, 2, 1, 0, 0, 0, 0],
+        [1, 2, 2, 2, 1, 0, 0, 0],
+        [1, 2, 2, 2, 2, 1, 0, 0],
+        [1, 2, 2, 2, 2, 2, 1, 0],
+        [1, 2, 2, 2, 2, 2, 2, 1],
+        [1, 2, 2, 2, 1, 1, 1, 0],
+        [1, 2, 1, 2, 1, 0, 0, 0],
+        [1, 1, 0, 1, 2, 1, 0, 0],
+        [0, 0, 0, 0, 1, 1, 0, 0],
+    ];
+    for (dy, row) in ARROW.iter().enumerate() {
+        let py = cy + dy as i32;
+        if py < 0 || py >= h as i32 {
+            continue;
+        }
+        for (dx, &px_kind) in row.iter().enumerate() {
+            if px_kind == 0 {
+                continue;
+            }
+            let px = cx + dx as i32;
+            if px < 0 || px >= w as i32 {
+                continue;
+            }
+            let idx = ((py as usize) * (w as usize) + (px as usize)) * 3;
+            if idx + 2 < rgb.len() {
+                let c = if px_kind == 2 { 255u8 } else { 12u8 };
+                rgb[idx] = c;
+                rgb[idx + 1] = c;
+                rgb[idx + 2] = c;
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+struct DxgiMonitorCapturer {
+    monitor: MonitorRect,
+    context: windows::Win32::Graphics::Direct3D11::ID3D11DeviceContext,
+    staging: windows::Win32::Graphics::Direct3D11::ID3D11Texture2D,
+    duplication: windows::Win32::Graphics::Dxgi::IDXGIOutputDuplication,
+    src_w: u32,
+    src_h: u32,
+    rgb_buf: Vec<u8>,
+}
+
+#[cfg(windows)]
+impl DxgiMonitorCapturer {
+    fn new(monitor_index: usize) -> Result<Self, String> {
+        use windows::core::Interface;
+        use windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_UNKNOWN;
+        use windows::Win32::Graphics::Direct3D11::*;
+        use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
+        use windows::Win32::Graphics::Dxgi::*;
+
+        let monitors = enumerate_monitors();
+        let monitor = monitors
+            .get(monitor_index)
+            .or_else(|| monitors.first())
+            .cloned()
+            .ok_or_else(|| "Nenhum monitor disponível para DXGI".to_string())?;
+
+        unsafe {
+            let factory: IDXGIFactory1 =
+                CreateDXGIFactory1().map_err(|e| format!("CreateDXGIFactory1: {e}"))?;
+
+            let mut adapter_idx = 0u32;
+            while let Ok(adapter) = factory.EnumAdapters1(adapter_idx) {
+                adapter_idx += 1;
+                let mut out_idx = 0u32;
+                while let Ok(output) = adapter.EnumOutputs(out_idx) {
+                    out_idx += 1;
+                    let Ok(desc) = output.GetDesc() else {
+                        continue;
+                    };
+                    let coords = desc.DesktopCoordinates;
+                    let matches = coords.left == monitor.x
+                        && coords.top == monitor.y
+                        && (coords.right - coords.left).unsigned_abs() == monitor.width;
+                    if !matches && monitor_index != 0 {
+                        continue;
+                    }
+                    if matches || (monitor_index == 0 && out_idx == 1 && adapter_idx == 1) {
+                        let base_adapter: IDXGIAdapter = adapter
+                            .cast()
+                            .map_err(|e| format!("adapter cast: {e}"))?;
+                        let mut device: Option<ID3D11Device> = None;
+                        let mut context: Option<ID3D11DeviceContext> = None;
+                        D3D11CreateDevice(
+                            Some(&base_adapter),
+                            D3D_DRIVER_TYPE_UNKNOWN,
+                            windows::Win32::Foundation::HMODULE::default(),
+                            D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+                            None,
+                            D3D11_SDK_VERSION,
+                            Some(&mut device),
+                            None,
+                            Some(&mut context),
+                        )
+                        .map_err(|e| format!("D3D11CreateDevice: {e}"))?;
+
+                        let device = device.ok_or("D3D11Device nulo")?;
+                        let context = context.ok_or("D3D11DeviceContext nulo")?;
+                        let output1: IDXGIOutput1 = output
+                            .cast()
+                            .map_err(|e| format!("IDXGIOutput1 cast: {e}"))?;
+                        let duplication = output1
+                            .DuplicateOutput(&device)
+                            .map_err(|e| format!("DuplicateOutput: {e}"))?;
+
+                        let src_w = (coords.right - coords.left).max(1) as u32;
+                        let src_h = (coords.bottom - coords.top).max(1) as u32;
+                        let mut tex_desc = D3D11_TEXTURE2D_DESC::default();
+                        tex_desc.Width = src_w;
+                        tex_desc.Height = src_h;
+                        tex_desc.MipLevels = 1;
+                        tex_desc.ArraySize = 1;
+                        tex_desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+                        tex_desc.SampleDesc.Count = 1;
+                        tex_desc.Usage = D3D11_USAGE_STAGING;
+                        tex_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ.0 as u32;
+
+                        let mut staging: Option<ID3D11Texture2D> = None;
+                        device
+                            .CreateTexture2D(&tex_desc, None, Some(&mut staging))
+                            .map_err(|e| format!("CreateTexture2D staging: {e}"))?;
+                        let staging = staging.ok_or("Textura staging nula")?;
+
+                        return Ok(Self {
+                            monitor,
+                            context,
+                            staging,
+                            duplication,
+                            src_w,
+                            src_h,
+                            rgb_buf: Vec::new(),
+                        });
+                    }
+                }
+            }
+        }
+
+        Err("Saída DXGI correspondente ao monitor não encontrada".to_string())
+    }
+
+    fn capture_if_changed(
+        &mut self,
+        max_width: u32,
+        quality: u8,
+        prev_sig: Option<u64>,
+        force_keyframe: bool,
+    ) -> Result<(NativeCaptureTick, Option<u64>), String> {
+        use windows::core::Interface;
+        use windows::Win32::Graphics::Direct3D11::*;
+        use windows::Win32::Graphics::Dxgi::*;
+
+        unsafe {
+            let mut frame_info = DXGI_OUTDUPL_FRAME_INFO::default();
+            let mut resource: Option<IDXGIResource> = None;
+            let acq = self
+                .duplication
+                .AcquireNextFrame(16, &mut frame_info, &mut resource);
+            if let Err(err) = acq {
+                if err.code() == DXGI_ERROR_WAIT_TIMEOUT {
+                    if !force_keyframe && prev_sig.is_some() {
+                        return Ok((NativeCaptureTick::Unchanged, prev_sig));
+                    }
+                    // No primeiro frame/heartbeat sem novidade DXGI, cai para Err suave se ainda não há prev_sig
+                    if prev_sig.is_some() {
+                        return Ok((NativeCaptureTick::Unchanged, prev_sig));
+                    }
+                    return Err("DXGI aguardando primeiro quadro".to_string());
+                }
+                return Err(format!("AcquireNextFrame: {err}"));
+            }
+
+            let tex_res = resource
+                .ok_or_else(|| "IDXGIResource vazio".to_string())
+                .and_then(|r| r.cast::<ID3D11Texture2D>().map_err(|e| format!("{e}")));
+
+            let target_w = max_width.clamp(160, self.src_w);
+            let target_h = ((self.src_h as u64 * target_w as u64) / self.src_w as u64).max(90) as u32;
+
+            let map_result = match tex_res {
+                Ok(tex) => {
+                    self.context.CopyResource(&self.staging, &tex);
+                    let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
+                    let m = self.context.Map(
+                        &self.staging,
+                        0,
+                        D3D11_MAP_READ,
+                        0,
+                        Some(&mut mapped),
+                    );
+                    if let Err(e) = m {
+                        Err(format!("ID3D11DeviceContext::Map: {e}"))
+                    } else {
+                        let row_pitch = mapped.RowPitch as usize;
+                        let total_bytes = row_pitch * (self.src_h as usize);
+                        let src_slice = std::slice::from_raw_parts(mapped.pData as *const u8, total_bytes);
+                        let needed_rgb = (target_w as usize) * (target_h as usize) * 3;
+                        self.rgb_buf.resize(needed_rgb, 0);
+
+                        for dy in 0..target_h as usize {
+                            let sy = (dy * self.src_h as usize) / target_h as usize;
+                            let src_row = sy * row_pitch;
+                            let dst_row = dy * (target_w as usize) * 3;
+                            for dx in 0..target_w as usize {
+                                let sx = (dx * self.src_w as usize) / target_w as usize;
+                                let s_off = src_row + sx * 4;
+                                let d_off = dst_row + dx * 3;
+                                self.rgb_buf[d_off] = src_slice[s_off + 2];
+                                self.rgb_buf[d_off + 1] = src_slice[s_off + 1];
+                                self.rgb_buf[d_off + 2] = src_slice[s_off];
+                            }
+                        }
+
+                        self.context.Unmap(&self.staging, 0);
+                        Ok(())
+                    }
+                }
+                Err(e) => Err(e),
+            };
+
+            let _ = self.duplication.ReleaseFrame();
+            map_result?;
+
+            if let Some((rx, ry)) = cursor_pos_on_monitor(&self.monitor) {
+                let cx = ((rx as i64) * (target_w as i64) / (self.src_w as i64)) as i32;
+                let cy = ((ry as i64) * (target_h as i64) / (self.src_h as i64)) as i32;
+                draw_rgb_cursor_arrow(&mut self.rgb_buf, target_w, target_h, cx, cy);
+            }
+
+            let sig = sample_bytes_signature(
+                &self.rgb_buf,
+                ((target_w as u64) << 16) ^ (target_h as u64),
+            );
+            if !force_keyframe && prev_sig == Some(sig) {
+                return Ok((NativeCaptureTick::Unchanged, prev_sig));
+            }
+
+            let mut jpeg_bytes = Vec::with_capacity((target_w * target_h) as usize / 2);
+            let encoder = Encoder::new(&mut jpeg_bytes, quality.clamp(20, 95));
+            encoder
+                .encode(&self.rgb_buf, target_w as u16, target_h as u16, ColorType::Rgb)
+                .map_err(|e| format!("JPEG encode DXGI: {e}"))?;
+
+            Ok((
+                NativeCaptureTick::Frame {
+                    width: target_w,
+                    height: target_h,
+                    jpeg_bytes,
+                },
+                Some(sig),
+            ))
+        }
+    }
+}
+
+/// Sessão persistente de captura nativa (DXGI primário para monitores + GDI fallback + janelas + detecção estática).
+pub struct NativeCaptureSession {
+    source_id: String,
+    max_width: u32,
+    quality: u8,
+    last_sig: Option<u64>,
+    last_sent_at: std::time::Instant,
+    #[cfg(windows)]
+    dxgi: Option<DxgiMonitorCapturer>,
+    #[cfg(windows)]
+    dxgi_cooldown_until: Option<std::time::Instant>,
+}
+
+impl NativeCaptureSession {
+    pub fn new(source_id: String, max_width: u32, quality: u8) -> Self {
+        #[cfg(windows)]
+        let dxgi = if !source_id.starts_with("window:") {
+            let mon_idx = source_id
+                .split(':')
+                .nth(1)
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(0);
+            DxgiMonitorCapturer::new(mon_idx).ok()
+        } else {
+            None
+        };
+
+        Self {
+            source_id,
+            max_width,
+            quality,
+            last_sig: None,
+            last_sent_at: std::time::Instant::now()
+                .checked_sub(std::time::Duration::from_secs(5))
+                .unwrap_or_else(std::time::Instant::now),
+            #[cfg(windows)]
+            dxgi,
+            #[cfg(windows)]
+            dxgi_cooldown_until: None,
+        }
+    }
+
+    pub fn next_tick(&mut self) -> Result<NativeCaptureTick, String> {
+        let force_refresh = self.last_sent_at.elapsed() >= std::time::Duration::from_millis(1800);
+
+        #[cfg(windows)]
+        if !self.source_id.starts_with("window:") {
+            if self.dxgi.is_none() {
+                let can_retry = self
+                    .dxgi_cooldown_until
+                    .map(|t| std::time::Instant::now() >= t)
+                    .unwrap_or(false);
+                if can_retry {
+                    let mon_idx = self
+                        .source_id
+                        .split(':')
+                        .nth(1)
+                        .and_then(|s| s.parse::<usize>().ok())
+                        .unwrap_or(0);
+                    self.dxgi = DxgiMonitorCapturer::new(mon_idx).ok();
+                    self.dxgi_cooldown_until = if self.dxgi.is_none() {
+                        Some(std::time::Instant::now() + std::time::Duration::from_secs(3))
+                    } else {
+                        None
+                    };
+                }
+            }
+
+            if let Some(ref mut dxgi) = self.dxgi {
+                match dxgi.capture_if_changed(self.max_width, self.quality, self.last_sig, force_refresh) {
+                    Ok((NativeCaptureTick::Unchanged, sig)) => {
+                        self.last_sig = sig;
+                        return Ok(NativeCaptureTick::Unchanged);
+                    }
+                    Ok((NativeCaptureTick::Frame { width, height, jpeg_bytes }, sig)) => {
+                        self.last_sig = sig;
+                        self.last_sent_at = std::time::Instant::now();
+                        return Ok(NativeCaptureTick::Frame { width, height, jpeg_bytes });
+                    }
+                    Err(err) => {
+                        tracing::debug!("DXGI fallback temporário para GDI: {err}");
+                        self.dxgi = None;
+                        self.dxgi_cooldown_until =
+                            Some(std::time::Instant::now() + std::time::Duration::from_secs(2));
+                    }
+                }
+            }
+        }
+
+        let (width, height, jpeg_bytes) =
+            capture_source_jpeg_bytes(&self.source_id, self.max_width, self.quality)?;
+        let sig = sample_bytes_signature(&jpeg_bytes, ((width as u64) << 16) ^ (height as u64));
+        if !force_refresh && self.last_sig == Some(sig) {
+            return Ok(NativeCaptureTick::Unchanged);
+        }
+        self.last_sig = Some(sig);
+        self.last_sent_at = std::time::Instant::now();
+        Ok(NativeCaptureTick::Frame {
+            width,
+            height,
+            jpeg_bytes,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sample_signature_detecta_alteracao() {
+        let mut buf = vec![42u8; 4096];
+        let s1 = sample_bytes_signature(&buf, 1);
+        assert_eq!(s1, sample_bytes_signature(&buf, 1));
+        buf[2048] = 99;
+        let s2 = sample_bytes_signature(&buf, 1);
+        assert_ne!(s1, s2);
+    }
 }

@@ -36,20 +36,34 @@ pub fn spawn_system_tray(
     const WM_RBUTTONUP: LPARAM = 0x0205;
 
     const NIM_ADD: DWORD = 0;
+    const NIM_MODIFY: DWORD = 1;
     const NIM_DELETE: DWORD = 2;
     const NIF_MESSAGE: UINT = 0x01;
     const NIF_ICON: UINT = 0x02;
     const NIF_TIP: UINT = 0x04;
+    const NIF_INFO: UINT = 0x10;
+    const NIIF_INFO: DWORD = 0x01;
 
     const MF_STRING: UINT = 0x0000;
+    const MF_GRAYED: UINT = 0x0001;
+    const MF_SEPARATOR: UINT = 0x0800;
     const TPM_RIGHTBUTTON: UINT = 0x0002;
+    const CF_UNICODETEXT: UINT = 13;
+    const GMEM_MOVEABLE: UINT = 0x0002;
+    const MB_OK: UINT = 0x0000_0000;
+    const MB_YESNO: UINT = 0x0000_0004;
+    const MB_ICONINFORMATION: UINT = 0x0000_0040;
+    const IDYES: i32 = 6;
     const IDI_APPLICATION: *const u16 = 32512usize as *const u16;
     const IMAGE_ICON: UINT = 1;
     const LR_LOADFROMFILE: UINT = 0x0010;
     const LR_DEFAULTSIZE: UINT = 0x0040;
 
     const CMD_OPEN: usize = 1001;
-    const CMD_EXIT: usize = 1002;
+    const CMD_COPY_INVITE: usize = 1002;
+    const CMD_TOGGLE_TUNNEL: usize = 1003;
+    const CMD_CHECK_UPDATE: usize = 1004;
+    const CMD_EXIT: usize = 1005;
 
     #[repr(C)]
     struct POINT {
@@ -104,6 +118,10 @@ pub fn spawn_system_tray(
     #[link(name = "kernel32")]
     extern "system" {
         fn GetModuleHandleW(lp_module_name: *const u16) -> HINSTANCE;
+        fn GlobalAlloc(u_flags: UINT, dw_bytes: usize) -> *mut c_void;
+        fn GlobalLock(h_mem: *mut c_void) -> *mut c_void;
+        fn GlobalUnlock(h_mem: *mut c_void) -> BOOL;
+        fn GlobalFree(h_mem: *mut c_void) -> *mut c_void;
     }
 
     #[link(name = "user32")]
@@ -151,6 +169,11 @@ pub fn spawn_system_tray(
         fn DestroyMenu(h_menu: HMENU) -> BOOL;
         fn GetCursorPos(lp_point: *mut POINT) -> BOOL;
         fn SetForegroundWindow(h_wnd: HWND) -> BOOL;
+        fn OpenClipboard(h_wnd_new_owner: HWND) -> BOOL;
+        fn CloseClipboard() -> BOOL;
+        fn EmptyClipboard() -> BOOL;
+        fn SetClipboardData(u_format: UINT, h_mem: *mut c_void) -> *mut c_void;
+        fn MessageBoxW(h_wnd: HWND, lp_text: *const u16, lp_caption: *const u16, u_type: UINT) -> i32;
     }
 
     #[link(name = "shell32")]
@@ -175,6 +198,51 @@ pub fn spawn_system_tray(
 
     fn to_wide(s: &str) -> Vec<u16> {
         s.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+
+    unsafe fn show_balloon(hwnd: HWND, title: &str, text: &str) {
+        let mut nid: NOTIFYICONDATAW = std::mem::zeroed();
+        nid.cb_size = size_of::<NOTIFYICONDATAW>() as DWORD;
+        nid.h_wnd = hwnd;
+        nid.u_id = 1;
+        nid.u_flags = NIF_INFO;
+        nid.dw_info_flags = NIIF_INFO;
+        for (i, ch) in title.encode_utf16().take(63).enumerate() {
+            nid.sz_info_title[i] = ch;
+        }
+        for (i, ch) in text.encode_utf16().take(255).enumerate() {
+            nid.sz_info[i] = ch;
+        }
+        Shell_NotifyIconW(NIM_MODIFY, &nid);
+    }
+
+    unsafe fn copy_text_to_clipboard(hwnd: HWND, text: &str) -> bool {
+        let wide = to_wide(text);
+        let byte_len = wide.len() * std::mem::size_of::<u16>();
+        let h_mem = GlobalAlloc(GMEM_MOVEABLE, byte_len);
+        if h_mem.is_null() {
+            return false;
+        }
+        let locked = GlobalLock(h_mem) as *mut u16;
+        if locked.is_null() {
+            GlobalFree(h_mem);
+            return false;
+        }
+        std::ptr::copy_nonoverlapping(wide.as_ptr(), locked, wide.len());
+        GlobalUnlock(h_mem);
+
+        if OpenClipboard(hwnd) == 0 {
+            GlobalFree(h_mem);
+            return false;
+        }
+        EmptyClipboard();
+        let res = SetClipboardData(CF_UNICODETEXT, h_mem);
+        CloseClipboard();
+        if res.is_null() {
+            GlobalFree(h_mem);
+            return false;
+        }
+        true
     }
 
     unsafe fn shutdown_app(hwnd: HWND) {
@@ -211,9 +279,62 @@ pub fn spawn_system_tray(
                 } else if l_param == WM_RBUTTONUP {
                     let menu = CreatePopupMenu();
                     if !menu.is_null() {
+                        let (peer_count, tunnel_st) = if let Some(ctx) = TRAY_CTX.get() {
+                            let st = ctx.state.clone();
+                            ctx.runtime.block_on(async move {
+                                let count = st.peers.read().await.len();
+                                let tst = st.tunnel.get_status().await;
+                                (count, tst)
+                            })
+                        } else {
+                            (0, Default::default())
+                        };
+
+                        let status_line = if tunnel_st.active && tunnel_st.public_url.is_some() {
+                            format!(
+                                "Drocsid v{} • Online: {} | Túnel: Ativo ({})",
+                                env!("CARGO_PKG_VERSION"),
+                                peer_count,
+                                tunnel_st.provider
+                            )
+                        } else if tunnel_st.active {
+                            format!(
+                                "Drocsid v{} • Online: {} | Túnel: Conectando...",
+                                env!("CARGO_PKG_VERSION"),
+                                peer_count
+                            )
+                        } else {
+                            format!(
+                                "Drocsid v{} • Online: {} | Túnel: Local",
+                                env!("CARGO_PKG_VERSION"),
+                                peer_count
+                            )
+                        };
+
+                        let status_w = to_wide(&status_line);
                         let open_txt = to_wide("Abrir Drocsid");
+                        let copy_txt = to_wide("Copiar Convite");
+                        let tunnel_txt = to_wide(if tunnel_st.active {
+                            "Parar Túnel Internet"
+                        } else {
+                            "Iniciar Túnel Internet"
+                        });
+                        let update_txt = to_wide("Verificar Atualização");
                         let exit_txt = to_wide("Encerrar Drocsid");
+
+                        let has_invite = tunnel_st.active && tunnel_st.invite_link.is_some();
+                        AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, status_w.as_ptr());
+                        AppendMenuW(menu, MF_SEPARATOR, 0, null());
                         AppendMenuW(menu, MF_STRING, CMD_OPEN, open_txt.as_ptr());
+                        AppendMenuW(
+                            menu,
+                            if has_invite { MF_STRING } else { MF_STRING | MF_GRAYED },
+                            CMD_COPY_INVITE,
+                            copy_txt.as_ptr(),
+                        );
+                        AppendMenuW(menu, MF_STRING, CMD_TOGGLE_TUNNEL, tunnel_txt.as_ptr());
+                        AppendMenuW(menu, MF_STRING, CMD_CHECK_UPDATE, update_txt.as_ptr());
+                        AppendMenuW(menu, MF_SEPARATOR, 0, null());
                         AppendMenuW(menu, MF_STRING, CMD_EXIT, exit_txt.as_ptr());
                         let mut pt = POINT { x: 0, y: 0 };
                         GetCursorPos(&mut pt);
@@ -230,6 +351,105 @@ pub fn spawn_system_tray(
                     if let Some(ctx) = TRAY_CTX.get() {
                         crate::open_desktop_window(&ctx.host_url);
                     }
+                } else if cmd_id == CMD_COPY_INVITE {
+                    if let Some(ctx) = TRAY_CTX.get() {
+                        let st = ctx.state.clone();
+                        let tst = ctx.runtime.block_on(async move { st.tunnel.get_status().await });
+                        if let (Some(code), Some(link)) = (tst.invite_code, tst.invite_link) {
+                            let msg_txt = format!(
+                                "Entre na minha sala do Drocsid:\nCódigo: {code}\nLink: {link}"
+                            );
+                            if copy_text_to_clipboard(hwnd, &msg_txt) {
+                                show_balloon(
+                                    hwnd,
+                                    "Drocsid — Convite Copiado",
+                                    "Código e link copiados para a Área de Transferência!",
+                                );
+                            }
+                        }
+                    }
+                } else if cmd_id == CMD_TOGGLE_TUNNEL {
+                    if let Some(ctx) = TRAY_CTX.get() {
+                        let st = ctx.state.clone();
+                        let currently_active = ctx
+                            .runtime
+                            .block_on(async { st.tunnel.get_status().await.active });
+                        if currently_active {
+                            ctx.runtime.spawn(async move {
+                                st.tunnel.stop_tunnel().await;
+                            });
+                            show_balloon(hwnd, "Drocsid", "Túnel Internet parado.");
+                        } else {
+                            ctx.runtime.spawn(async move {
+                                st.tunnel.clone().start_tunnel().await;
+                            });
+                            show_balloon(
+                                hwnd,
+                                "Drocsid",
+                                "Iniciando túnel público na Internet em segundo plano...",
+                            );
+                        }
+                    }
+                } else if cmd_id == CMD_CHECK_UPDATE {
+                    let title_w = to_wide("Drocsid — Atualização");
+                    std::thread::spawn(move || {
+                        use std::os::windows::process::CommandExt;
+                        const CREATE_NO_WINDOW: u32 = 0x08000000;
+                        let current = env!("CARGO_PKG_VERSION");
+                        let output = std::process::Command::new("curl.exe")
+                            .args([
+                                "-sL",
+                                "--max-time",
+                                "6",
+                                "-H",
+                                "User-Agent: Drocsid",
+                                "https://api.github.com/repos/thurzyn001/Drocsid/releases/latest",
+                            ])
+                            .creation_flags(CREATE_NO_WINDOW)
+                            .output();
+
+                        match output {
+                            Ok(out) if out.status.success() => {
+                                let body = String::from_utf8_lossy(&out.stdout);
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                                    if let Some(tag) = json.get("tag_name").and_then(|v| v.as_str()) {
+                                        let clean_tag = tag.trim_start_matches(['v', 'V']);
+                                        if clean_tag == current {
+                                            let msg_w = to_wide(&format!(
+                                                "Você já está na versão mais recente (v{current})."
+                                            ));
+                                            MessageBoxW(null_mut(), msg_w.as_ptr(), title_w.as_ptr(), MB_OK | MB_ICONINFORMATION);
+                                        } else {
+                                            let page = json
+                                                .get("html_url")
+                                                .and_then(|v| v.as_str())
+                                                .unwrap_or("https://github.com/thurzyn001/Drocsid/releases");
+                                            let msg_w = to_wide(&format!(
+                                                "Nova versão disponível: {tag} (atual: v{current}).\n\nDeseja abrir a página de download no navegador?"
+                                            ));
+                                            if MessageBoxW(null_mut(), msg_w.as_ptr(), title_w.as_ptr(), MB_YESNO | MB_ICONINFORMATION) == IDYES {
+                                                let _ = std::process::Command::new("cmd")
+                                                    .args(["/c", "start", "", page])
+                                                    .creation_flags(CREATE_NO_WINDOW)
+                                                    .spawn();
+                                            }
+                                        }
+                                        return;
+                                    }
+                                }
+                                let msg_w = to_wide(&format!(
+                                    "Versão atual: v{current}.\nNenhuma release publicada foi encontrada em thurzyn001/Drocsid."
+                                ));
+                                MessageBoxW(null_mut(), msg_w.as_ptr(), title_w.as_ptr(), MB_OK | MB_ICONINFORMATION);
+                            }
+                            _ => {
+                                let msg_w = to_wide(&format!(
+                                    "Não foi possível consultar o GitHub agora. Versão atual: v{current}."
+                                ));
+                                MessageBoxW(null_mut(), msg_w.as_ptr(), title_w.as_ptr(), MB_OK | MB_ICONINFORMATION);
+                            }
+                        }
+                    });
                 } else if cmd_id == CMD_EXIT {
                     shutdown_app(hwnd);
                 }

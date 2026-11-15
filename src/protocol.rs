@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -29,6 +31,17 @@ pub struct ScreenShareInfo {
     pub has_audio: bool,
 }
 
+/// Capacidades opcionais de codecs binários no cliente (negociação Opus / WebCodecs)
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PeerCapabilities {
+    #[serde(default)]
+    pub opus_relay: bool,
+    #[serde(default)]
+    pub vp8_relay: bool,
+    #[serde(default)]
+    pub h264_relay: bool,
+}
+
 /// Estado de um participante conectado em uma sala (voz, vídeo e Go Live).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PeerInfo {
@@ -49,8 +62,22 @@ pub struct PeerInfo {
     /// Participante solicitou/ativou Relay de Voz pelo WebSocket (anti-CGNAT)
     #[serde(default)]
     pub voice_relay: bool,
+    /// Participante silenciado no servidor pelo anfitrião (Item 7)
+    #[serde(default)]
+    pub server_muted: bool,
     /// Estado ativo de compartilhamento de tela ("Go Live")
     pub screen_share: Option<ScreenShareInfo>,
+    /// Capacidades de codecs WebCodecs anunciadas pelo navegador do participante
+    #[serde(default)]
+    pub caps: PeerCapabilities,
+}
+
+/// Prévia da mensagem citada em uma resposta de chat.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatReplyPreview {
+    pub id: Uuid,
+    pub username: String,
+    pub snippet: String,
 }
 
 /// Mensagem de texto persistida no histórico recente da sala.
@@ -63,6 +90,35 @@ pub struct ChatEntry {
     pub text: String,
     pub timestamp_ms: u64,
     pub is_system: bool,
+    #[serde(default)]
+    pub edited_at_ms: Option<u64>,
+    #[serde(default)]
+    pub deleted: bool,
+    #[serde(default)]
+    pub reply_to: Option<ChatReplyPreview>,
+    #[serde(default)]
+    pub reactions: HashMap<String, Vec<Uuid>>,
+}
+
+/// Configuração opcional de servidor TURN compartilhada pelo anfitrião aos convidados autenticados.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TurnServerConfig {
+    pub urls: String,
+    #[serde(default)]
+    pub username: String,
+    #[serde(default)]
+    pub credential: String,
+}
+
+/// Resumo em tempo real de uma sala para prévia na barra lateral.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoomSummary {
+    pub name: String,
+    pub peer_count: usize,
+    pub voice_count: usize,
+    pub live_count: usize,
+    #[serde(default)]
+    pub locked: bool,
 }
 
 /// Informações de um monitor capturável pelo motor nativo em Rust.
@@ -98,6 +154,26 @@ pub enum ClientMessage {
     /// Envia mensagem de texto no chat da sala atual
     ChatMessage {
         text: String,
+        #[serde(default)]
+        reply_to_id: Option<Uuid>,
+    },
+    /// Edita mensagem própria no chat da sala
+    EditChatMessage {
+        message_id: Uuid,
+        text: String,
+    },
+    /// Exclui (soft-delete) uma mensagem no chat da sala (autor ou anfitrião)
+    DeleteChatMessage {
+        message_id: Uuid,
+    },
+    /// Alterna reação emoji em uma mensagem do chat
+    ReactChatMessage {
+        message_id: Uuid,
+        emoji: String,
+    },
+    /// Indica que o participante está digitando na sala atual
+    Typing {
+        is_typing: bool,
     },
     /// Atualiza estado de microfone/áudio (`setSelfMute`, `setSelfDeafen`, `setOnSpeakingCallback`)
     UpdateVoiceState {
@@ -165,9 +241,53 @@ pub enum ClientMessage {
     SoundEffect {
         kind: String,
     },
-    /// Expulsa um participante (somente anfitrião)
+    /// Expulsa (e opcionalmente bane) um participante (somente anfitrião)
     KickPeer {
         target_id: Uuid,
+        #[serde(default)]
+        ban: bool,
+    },
+    /// Silencia ou dessilencia um participante no servidor (somente anfitrião)
+    SetPeerServerMute {
+        target_id: Uuid,
+        muted: bool,
+    },
+    /// Tranca ou destranca uma sala para exigir aprovação do anfitrião
+    ToggleRoomLock {
+        room: String,
+    },
+    /// Anfitrião aprova ou recusa entrada de um participante em sala trancada
+    ResolveJoinApproval {
+        target_id: Uuid,
+        room: String,
+        approve: bool,
+    },
+    /// Exclui uma sala personalizada (exceto #geral — somente anfitrião)
+    DeleteRoom {
+        room: String,
+    },
+    /// Limpa o histórico de chat da sala especificada (somente anfitrião)
+    ClearChat {
+        room: String,
+    },
+    /// Limpa a lista de banidos da sessão (somente anfitrião)
+    UnbanAll,
+    /// Define ou limpa a configuração TURN compartilhada com os participantes autenticados (somente anfitrião)
+    SetHostTurnConfig {
+        turn: Option<TurnServerConfig>,
+    },
+    /// Informa capacidades de codecs WebCodecs do navegador (Opus, VP8, H.264)
+    SetClientCapabilities {
+        caps: PeerCapabilities,
+    },
+    /// Solicita ao transmissor WebCodecs V2 um keyframe imediato para sincronizar decodificador
+    RequestVideoKeyframe {
+        streamer_id: Uuid,
+    },
+    /// Configura tecla/botão virtual Windows (VK code) para Push-to-Talk global do anfitrião
+    ConfigureGlobalPtt {
+        enabled: bool,
+        vk_code: Option<u32>,
     },
 }
 
@@ -183,16 +303,24 @@ pub enum ServerMessage {
         is_host: bool,
         /// Versão do servidor, para avisar sobre versões diferentes entre amigos
         version: String,
+        #[serde(default)]
+        room_summaries: Vec<RoomSummary>,
     },
     /// Estado completo da sala ao entrar
     RoomState {
         room: String,
         peers: Vec<PeerInfo>,
         chat_history: Vec<ChatEntry>,
+        #[serde(default)]
+        room_summaries: Vec<RoomSummary>,
+        #[serde(default)]
+        shared_turn: Option<TurnServerConfig>,
     },
     /// Lista atualizada de salas no servidor (P2-2)
     RoomsUpdated {
         rooms: Vec<String>,
+        #[serde(default)]
+        room_summaries: Vec<RoomSummary>,
     },
     /// Novo participante entrou na sala
     PeerJoined {
@@ -209,6 +337,29 @@ pub enum ServerMessage {
     /// Nova mensagem de chat na sala
     ChatBroadcast {
         entry: ChatEntry,
+    },
+    /// Atualização de mensagem existente (edição, exclusão ou reações)
+    ChatMessageUpdated {
+        room: String,
+        entry: ChatEntry,
+    },
+    /// Participante começou ou parou de digitar no chat
+    PeerTyping {
+        peer_id: Uuid,
+        username: String,
+        is_typing: bool,
+    },
+    /// Servidor TURN compartilhado atualizado pelo anfitrião
+    TurnConfigUpdated {
+        turn: Option<TurnServerConfig>,
+    },
+    /// Solicita ao transmissor um keyframe WebCodecs imediato
+    RequestVideoKeyframe {
+        requester_id: Uuid,
+    },
+    /// Estado do atalho global Push-to-Talk do sistema operacional (Windows) para a janela do anfitrião
+    GlobalPttState {
+        pressed: bool,
     },
     /// Quadro de vídeo emitido pelo motor nativo em Rust ou pelo Relay Universal (`SetVideoOutputSink` ordinal 231).
     /// O cliente renderiza o quadro e responde com `SignalVideoOutputSinkReady` (ordinal 237).
@@ -256,6 +407,26 @@ pub enum ServerMessage {
     Kicked {
         reason: String,
     },
+    /// Aviso ao convidado de que a sala está trancada e aguarda aprovação do anfitrião
+    JoinApprovalRequired {
+        room: String,
+    },
+    /// Solicitação enviada aos anfitriões para aprovar entrada em sala trancada
+    JoinApprovalRequest {
+        peer_id: Uuid,
+        username: String,
+        room: String,
+    },
+    /// Resultado da solicitação de entrada em sala trancada
+    JoinApprovalResult {
+        room: String,
+        approved: bool,
+    },
+    /// Histórico da sala limpo pelo anfitrião
+    ChatCleared {
+        room: String,
+        history: Vec<ChatEntry>,
+    },
     /// Quadro binário de vídeo (não serializado em JSON; enviado via `Message::Binary`)
     #[serde(skip)]
     BinaryVideoFrame(Vec<u8>),
@@ -270,8 +441,12 @@ pub enum ServerMessage {
 
 pub const CLIENT_BINARY_FRAME_MAGIC: &[u8; 4] = b"DVP\x01";
 pub const SERVER_BINARY_FRAME_MAGIC: &[u8; 4] = b"DVF\x01";
+pub const CLIENT_BINARY_FRAME_V2_MAGIC: &[u8; 4] = b"DVP\x02";
+pub const SERVER_BINARY_FRAME_V2_MAGIC: &[u8; 4] = b"DVF\x02";
 pub const CLIENT_BINARY_AUDIO_MAGIC: &[u8; 4] = b"DAP\x01";
 pub const SERVER_BINARY_AUDIO_MAGIC: &[u8; 4] = b"DAF\x01";
+pub const CLIENT_BINARY_AUDIO_V2_MAGIC: &[u8; 4] = b"DAP\x02";
+pub const SERVER_BINARY_AUDIO_V2_MAGIC: &[u8; 4] = b"DAF\x02";
 pub const MAX_BINARY_AUDIO_BYTES: usize = 8192;
 
 /// Empacota um quadro JPEG enviado pelo cliente (`DVP\x01` + `frame_seq:u64` + `w:u16` + `h:u16` + JPEG).
@@ -376,6 +551,136 @@ pub fn parse_server_binary_audio(buf: &[u8]) -> Option<(Uuid, u32, &[u8])> {
     Some((sender_id, sample_rate, &buf[24..]))
 }
 
+/// Empacota chunk de vídeo WebCodecs enviado pelo cliente (`DVP\x02`: 18 bytes de cabeçalho + payload).
+pub fn encode_client_binary_frame_v2(
+    frame_seq: u64,
+    width: u16,
+    height: u16,
+    codec_id: u8,
+    flags: u8,
+    chunk_bytes: &[u8],
+) -> Vec<u8> {
+    let mut out = Vec::with_capacity(18 + chunk_bytes.len());
+    out.extend_from_slice(CLIENT_BINARY_FRAME_V2_MAGIC);
+    out.extend_from_slice(&frame_seq.to_be_bytes());
+    out.extend_from_slice(&width.to_be_bytes());
+    out.extend_from_slice(&height.to_be_bytes());
+    out.push(codec_id);
+    out.push(flags);
+    out.extend_from_slice(chunk_bytes);
+    out
+}
+
+/// Faz parse do chunk de vídeo WebCodecs enviado pelo cliente (`DVP\x02`).
+pub fn parse_client_binary_frame_v2(buf: &[u8]) -> Option<(u64, u16, u16, u8, u8, &[u8])> {
+    if buf.len() <= 18 || &buf[..4] != CLIENT_BINARY_FRAME_V2_MAGIC {
+        return None;
+    }
+    let frame_seq = u64::from_be_bytes(buf[4..12].try_into().ok()?);
+    let width = u16::from_be_bytes(buf[12..14].try_into().ok()?);
+    let height = u16::from_be_bytes(buf[14..16].try_into().ok()?);
+    let codec_id = buf[16];
+    if codec_id != 1 && codec_id != 2 {
+        return None;
+    }
+    let flags = buf[17];
+    Some((frame_seq, width, height, codec_id, flags, &buf[18..]))
+}
+
+/// Empacota chunk de vídeo WebCodecs emitido pelo servidor (`DVF\x02`: 34 bytes de cabeçalho + payload).
+pub fn encode_server_binary_frame_v2(
+    streamer_id: Uuid,
+    frame_seq: u64,
+    width: u16,
+    height: u16,
+    codec_id: u8,
+    flags: u8,
+    chunk_bytes: &[u8],
+) -> Vec<u8> {
+    let mut out = Vec::with_capacity(34 + chunk_bytes.len());
+    out.extend_from_slice(SERVER_BINARY_FRAME_V2_MAGIC);
+    out.extend_from_slice(streamer_id.as_bytes());
+    out.extend_from_slice(&frame_seq.to_be_bytes());
+    out.extend_from_slice(&width.to_be_bytes());
+    out.extend_from_slice(&height.to_be_bytes());
+    out.push(codec_id);
+    out.push(flags);
+    out.extend_from_slice(chunk_bytes);
+    out
+}
+
+/// Faz parse do chunk de vídeo WebCodecs emitido pelo servidor (`DVF\x02`).
+pub fn parse_server_binary_frame_v2(buf: &[u8]) -> Option<(Uuid, u64, u16, u16, u8, u8, &[u8])> {
+    if buf.len() <= 34 || &buf[..4] != SERVER_BINARY_FRAME_V2_MAGIC {
+        return None;
+    }
+    let streamer_id = Uuid::from_slice(&buf[4..20]).ok()?;
+    let frame_seq = u64::from_be_bytes(buf[20..28].try_into().ok()?);
+    let width = u16::from_be_bytes(buf[28..30].try_into().ok()?);
+    let height = u16::from_be_bytes(buf[30..32].try_into().ok()?);
+    let codec_id = buf[32];
+    let flags = buf[33];
+    Some((streamer_id, frame_seq, width, height, codec_id, flags, &buf[34..]))
+}
+
+/// Empacota áudio Opus enviado pelo cliente (`DAP\x02`: 16 bytes de cabeçalho + payload).
+pub fn encode_client_binary_audio_v2(
+    sample_rate: u32,
+    timestamp_us: u64,
+    payload: &[u8],
+) -> Vec<u8> {
+    let mut out = Vec::with_capacity(16 + payload.len());
+    out.extend_from_slice(CLIENT_BINARY_AUDIO_V2_MAGIC);
+    out.extend_from_slice(&sample_rate.to_be_bytes());
+    out.extend_from_slice(&timestamp_us.to_be_bytes());
+    out.extend_from_slice(payload);
+    out
+}
+
+/// Faz parse do pacote de áudio Opus enviado pelo cliente (`DAP\x02`).
+pub fn parse_client_binary_audio_v2(buf: &[u8]) -> Option<(u32, u64, &[u8])> {
+    if buf.len() <= 16 || &buf[..4] != CLIENT_BINARY_AUDIO_V2_MAGIC {
+        return None;
+    }
+    let payload_len = buf.len() - 16;
+    if payload_len > MAX_BINARY_AUDIO_BYTES {
+        return None;
+    }
+    let sample_rate = u32::from_be_bytes(buf[4..8].try_into().ok()?);
+    if !(8000..=48000).contains(&sample_rate) {
+        return None;
+    }
+    let timestamp_us = u64::from_be_bytes(buf[8..16].try_into().ok()?);
+    Some((sample_rate, timestamp_us, &buf[16..]))
+}
+
+/// Empacota áudio Opus retransmitido pelo servidor (`DAF\x02`: 32 bytes de cabeçalho + payload).
+pub fn encode_server_binary_audio_v2(
+    sender_id: Uuid,
+    sample_rate: u32,
+    timestamp_us: u64,
+    payload: &[u8],
+) -> Vec<u8> {
+    let mut out = Vec::with_capacity(32 + payload.len());
+    out.extend_from_slice(SERVER_BINARY_AUDIO_V2_MAGIC);
+    out.extend_from_slice(sender_id.as_bytes());
+    out.extend_from_slice(&sample_rate.to_be_bytes());
+    out.extend_from_slice(&timestamp_us.to_be_bytes());
+    out.extend_from_slice(payload);
+    out
+}
+
+/// Faz parse do pacote de áudio Opus emitido pelo servidor (`DAF\x02`).
+pub fn parse_server_binary_audio_v2(buf: &[u8]) -> Option<(Uuid, u32, u64, &[u8])> {
+    if buf.len() <= 32 || &buf[..4] != SERVER_BINARY_AUDIO_V2_MAGIC {
+        return None;
+    }
+    let sender_id = Uuid::from_slice(&buf[4..20]).ok()?;
+    let sample_rate = u32::from_be_bytes(buf[20..24].try_into().ok()?);
+    let timestamp_us = u64::from_be_bytes(buf[24..32].try_into().ok()?);
+    Some((sender_id, sample_rate, timestamp_us, &buf[32..]))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,10 +708,42 @@ mod tests {
             rooms: vec!["geral".into()],
             is_host: false,
             version: "x".into(),
+            room_summaries: vec![],
         };
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains(r#""type":"welcome""#));
         assert!(json.contains(r#""is_host":false"#));
+    }
+
+    #[test]
+    fn legacy_chat_history_deserializes_with_defaults() {
+        let legacy_json = r#"{"id":"00000000-0000-0000-0000-000000000001","peer_id":"00000000-0000-0000-0000-000000000000","username":"Bot","room":"geral","text":"oi","timestamp_ms":123,"is_system":true}"#;
+        let entry: ChatEntry = serde_json::from_str(legacy_json).unwrap();
+        assert!(!entry.deleted);
+        assert!(entry.edited_at_ms.is_none());
+        assert!(entry.reply_to.is_none());
+        assert!(entry.reactions.is_empty());
+
+        let legacy_msg: ClientMessage =
+            serde_json::from_str(r#"{"type":"chat_message","text":"olá"}"#).unwrap();
+        assert!(matches!(
+            legacy_msg,
+            ClientMessage::ChatMessage {
+                reply_to_id: None,
+                ..
+            }
+        ));
+
+        let kick_legacy: ClientMessage =
+            serde_json::from_str(r#"{"type":"kick_peer","target_id":"00000000-0000-0000-0000-000000000001"}"#)
+                .unwrap();
+        assert!(matches!(kick_legacy, ClientMessage::KickPeer { ban: false, .. }));
+
+        let peer_legacy: PeerInfo = serde_json::from_str(
+            r#"{"peer_id":"00000000-0000-0000-0000-000000000001","username":"Gui","room":"geral","is_host":false,"in_voice":false,"self_mute":false,"self_deaf":false,"speaking":false,"screen_share":null}"#,
+        )
+        .unwrap();
+        assert!(!peer_legacy.server_muted);
     }
 
     #[test]
@@ -438,5 +775,25 @@ mod tests {
         let server_pkt = encode_server_binary_audio(uid, 16000, &[1, 2, 3, 4]);
         let (p_uid, p_sr, p_data) = parse_server_binary_audio(&server_pkt).unwrap();
         assert_eq!((p_uid, p_sr, p_data), (uid, 16000, &[1, 2, 3, 4][..]));
+    }
+
+    #[test]
+    fn binary_v2_packets_roundtrip() {
+        let vid_pkt = encode_client_binary_frame_v2(88, 1280, 720, 1, 1, b"vp8chunk");
+        let (seq, w, h, codec, flags, data) = parse_client_binary_frame_v2(&vid_pkt).unwrap();
+        assert_eq!((seq, w, h, codec, flags, data), (88, 1280, 720, 1, 1, &b"vp8chunk"[..]));
+
+        let sid = Uuid::new_v4();
+        let sv_pkt = encode_server_binary_frame_v2(sid, 88, 1280, 720, 1, 1, b"vp8chunk");
+        let (p_sid, p_seq, p_w, p_h, p_c, p_f, p_d) = parse_server_binary_frame_v2(&sv_pkt).unwrap();
+        assert_eq!((p_sid, p_seq, p_w, p_h, p_c, p_f, p_d), (sid, 88, 1280, 720, 1, 1, &b"vp8chunk"[..]));
+
+        let aud_pkt = encode_client_binary_audio_v2(48000, 120_000, b"opus");
+        let (sr, ts, ap) = parse_client_binary_audio_v2(&aud_pkt).unwrap();
+        assert_eq!((sr, ts, ap), (48000, 120_000, &b"opus"[..]));
+
+        let sa_pkt = encode_server_binary_audio_v2(sid, 48000, 120_000, b"opus");
+        let (p_uid, p_sr, p_ts, p_ap) = parse_server_binary_audio_v2(&sa_pkt).unwrap();
+        assert_eq!((p_uid, p_sr, p_ts, p_ap), (sid, 48000, 120_000, &b"opus"[..]));
     }
 }

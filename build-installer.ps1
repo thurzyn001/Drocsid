@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "  Construindo o Drocsid + Instalador Windows (Setup.exe)  " -ForegroundColor Cyan
@@ -15,6 +15,19 @@ if (Test-Path "C:\msys64\ucrt64\bin") {
 
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
     throw "O compilador Rust (cargo) não foi encontrado. Instale com: winget install Rustlang.Rustup"
+}
+
+if ((Test-Path (Join-Path $PSScriptRoot "node_modules")) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Write-Host "[0/3] Reconstruindo UI modular (npm run build -> src\ui.html)..." -ForegroundColor Yellow
+    Push-Location $PSScriptRoot
+    try {
+        npm run build
+        if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao executar npm run build (código $LASTEXITCODE)."
+        }
+    } finally {
+        Pop-Location
+    }
 }
 
 Write-Host "[1/3] Compilando binário nativo em Rust (cargo build --release)..." -ForegroundColor Yellow

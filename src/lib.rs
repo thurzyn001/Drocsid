@@ -1,5 +1,6 @@
 //! Drocsid — chat, voz e compartilhamento de tela entre amigos.
 
+pub mod audio_capture;
 pub mod capture;
 pub mod invite;
 pub mod protocol;
