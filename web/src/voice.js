@@ -93,8 +93,8 @@ export function updateVoiceButtonLabel() {
     mBtn.classList.add("active-green");
   }
   if (state.pttEnabled) {
-    const label = state.pttBinding?.defaultCompat ? "V/Espaço" : (state.pttBinding?.label || "PTT");
-    btn.textContent = state.pttKeyDown ? "🟢 PTT Falando" : `🟡 PTT (Segure ${label})`;
+    const label = state.pttBinding?.defaultCompat ? "V/Espaço" : (state.pttBinding?.label || "Tecla");
+    btn.textContent = state.pttKeyDown ? "🟢 Falando" : `🟡 Segure ${label}`;
   } else {
     btn.textContent = "🟢 Voz Conectada";
   }
@@ -781,7 +781,7 @@ export function refreshMuteButtonUi() {
   if (btn) {
     btn.classList.toggle("active-red", effectiveMute);
     btn.textContent = mutedByHost
-      ? "🔇 Mutado (Host)"
+      ? "🔇 Mutado (Anfitrião)"
       : state.selfMute
         ? "🔇 Mutado"
         : "🎤 Mutar";
@@ -789,7 +789,7 @@ export function refreshMuteButtonUi() {
   const mBtn = document.getElementById("mBtnMute");
   if (mBtn) {
     mBtn.classList.toggle("active-red", effectiveMute);
-    mBtn.textContent = effectiveMute ? "🔇 Mudo" : "🎤 Mute";
+    mBtn.textContent = effectiveMute ? "🔇 Mutado" : "🎤 Mutar";
   }
 }
 
@@ -814,15 +814,17 @@ export function toggleMute() {
 
 export function toggleDeaf() {
   state.selfDeaf = !state.selfDeaf;
-  // P2-1: igual ao Discord, Deafen também silencia o microfone local
+  // P2-1: igual ao Discord, Sem Áudio também silencia o microfone local
   syncLocalAudioEnabled();
   applyAllAudioVolumes();
   const stageVideo = document.getElementById("stageVideo");
   stageVideo.muted = state.selfDeaf || (state.watchedStreamerId === state.myPeerId);
 
   const btn = document.getElementById("btnDeaf");
-  btn.classList.toggle("active-red", state.selfDeaf);
-  btn.textContent = state.selfDeaf ? "🙉 Áudio Desativado" : "🎧 Desativar Áudio (Deafen)";
+  if (btn) {
+    btn.classList.toggle("active-red", state.selfDeaf);
+    btn.textContent = state.selfDeaf ? "🙉 Som Desativado" : "🎧 Sem Áudio";
+  }
   sendVoiceState();
 }
 

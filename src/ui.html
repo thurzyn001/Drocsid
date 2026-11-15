@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Drocsid — Chat, Voz & Go Live (Internet & P2P)</title>
+  <title>Drocsid</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%235865F2'/><text x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Segoe UI,sans-serif' font-weight='bold'>D</text></svg>" />
   <style>
 /* web/src/styles/main.css */
@@ -18,9 +18,23 @@
   --brand: #5865f2;
   --brand-hover: #4752c4;
   --green: #23a55a;
+  --yellow: #f0b232;
   --red: #da373c;
   --red-hover: #a1282c;
+  --danger: #da373c;
   --border: #3f4147;
+  --btn-bg: #383a40;
+  --btn-hover: #4e5058;
+  --btn-text: #f2f3f5;
+  --soft-btn-bg: rgba(255, 255, 255, 0.06);
+  --soft-btn-hover: rgba(255, 255, 255, 0.12);
+  --surface-soft: rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.07);
+  --card-soft-bg: rgba(255, 255, 255, 0.03);
+  --code-bg: #1e1f22;
+  --code-text: #e2e8f0;
+  --accent-text: #a5b4fc;
+  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -70,22 +84,59 @@ body {
 }
 .network-card {
   margin: 10px 8px 2px;
-  padding: 10px;
-  border-radius: 8px;
-  background: rgba(88, 101, 242, 0.12);
-  border: 1px solid rgba(88, 101, 242, 0.35);
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--card-soft-bg);
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
+  transition: background 0.15s, border-color 0.15s;
 }
 .network-card-title {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #a5b4fc;
+  letter-spacing: 0.03em;
+  color: var(--accent-text);
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+.network-status-pill {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.network-quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.network-details-wrap {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+}
+.network-details-wrap.open {
+  display: flex;
+}
+.soft-link-btn {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s;
+}
+.soft-link-btn:hover {
+  color: var(--text-header);
+  text-decoration: underline;
 }
 .invite-box {
   background: var(--bg-tertiary);
@@ -132,11 +183,11 @@ body {
   transition: background 0.12s, color 0.12s;
 }
 .room-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-hover);
   color: var(--text-normal);
 }
 .room-btn.active {
-  background: rgba(88, 101, 242, 0.22);
+  background: rgba(88, 101, 242, 0.2);
   color: var(--text-header);
   font-weight: 600;
 }
@@ -151,8 +202,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.16);
+  border-radius: 8px;
+  background: var(--surface-soft);
   font-size: 13px;
 }
 .peer-left {
@@ -247,31 +298,48 @@ body {
 }
 .btn {
   border: none;
-  border-radius: 5px;
+  border-radius: 7px;
   padding: 7px 10px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  color: #fff;
-  background: #383a40;
+  color: var(--btn-text);
+  background: var(--btn-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  transition: background 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
 }
 .btn:hover {
-  background: #4e5058;
+  background: var(--btn-hover);
+}
+.soft-btn,
+.soft-icon-btn {
+  background: var(--soft-btn-bg);
+  color: var(--text-normal);
+  border: 1px solid var(--border);
+}
+.soft-btn:hover,
+.soft-icon-btn:hover {
+  background: var(--soft-btn-hover);
+  color: var(--text-header);
 }
 .btn.active-green {
   background: var(--green);
+  color: #fff;
 }
 .btn.active-red {
   background: var(--red);
+  color: #fff;
 }
 .btn-golive {
   grid-column: span 2;
   background: var(--brand);
+  color: #fff;
   padding: 9px 12px;
   font-size: 13px;
 }
@@ -333,9 +401,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--bg-secondary);
+  color: var(--text-normal);
   font-size: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 .stage-tabs {
   display: flex;
@@ -344,11 +413,11 @@ body {
   overflow-x: auto;
 }
 .stream-tab {
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   color: var(--text-normal);
   border: 1px solid var(--border);
   padding: 4px 10px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
   display: flex;
@@ -357,8 +426,8 @@ body {
 }
 .stream-tab.active {
   border-color: var(--brand);
-  background: rgba(88, 101, 242, 0.25);
-  color: #fff;
+  background: rgba(88, 101, 242, 0.22);
+  color: var(--text-header);
 }
 .stage-viewport {
   flex: 1;
@@ -402,9 +471,9 @@ body {
   padding: 24px 28px;
   max-width: 480px;
   margin: 16px;
-  background: rgba(30, 31, 34, 0.94);
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   color: var(--text-normal);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
   z-index: 4;
@@ -513,13 +582,17 @@ body {
 }
 .chat-input {
   flex: 1;
-  background: #383a40;
-  border: none;
-  border-radius: 6px;
+  background: var(--btn-bg);
+  border: 1px solid transparent;
+  border-radius: 8px;
   padding: 10px 14px;
   color: var(--text-header);
   font-size: 14px;
   outline: none;
+  transition: border-color 0.15s;
+}
+.chat-input:focus {
+  border-color: var(--brand);
 }
 .modal-backdrop {
   position: fixed;
@@ -569,26 +642,66 @@ body {
   gap: 10px;
 }
 .mode-card {
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  padding: 11px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 12px;
   cursor: pointer;
   background: var(--bg-primary);
-  transition: border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: border-color 0.15s, background 0.15s;
 }
 .mode-card.selected {
   border-color: var(--brand);
-  background: rgba(88, 101, 242, 0.14);
+  background: rgba(88, 101, 242, 0.12);
+}
+.mode-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
 }
 .mode-card h4 {
   color: var(--text-header);
   font-size: 13px;
-  margin-bottom: 4px;
+  margin: 0;
 }
 .mode-card p {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-muted);
-  line-height: 1.35;
+  line-height: 1.4;
+  margin: 0;
+}
+.help-pill-btn {
+  background: var(--soft-btn-bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.help-pill-btn:hover {
+  background: var(--soft-btn-hover);
+  color: var(--text-header);
+}
+.mode-help-box {
+  display: none;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--card-soft-bg);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-normal);
+}
+.mode-help-box.open {
+  display: block;
 }
 .preview-grid {
   display: grid;
@@ -789,7 +902,8 @@ body {
   display: flex;
 }
 .msg-text code {
-  background: #1e1f22;
+  background: var(--code-bg);
+  color: var(--code-text);
   padding: 1px 5px;
   border-radius: 4px;
   font-family: Consolas, monospace;
@@ -968,49 +1082,230 @@ body {
     max-height: 92dvh;
   }
 }
+:root[data-theme=amoled],
 body[data-theme=amoled] {
   --bg-tertiary: #000000;
   --bg-secondary: #0a0b0e;
   --bg-primary: #101216;
   --bg-stage: #000000;
   --border: #1e2128;
+  --btn-bg: #1c1e24;
+  --btn-hover: #282b33;
+  --btn-text: #f2f3f5;
+  --soft-btn-bg: rgba(255, 255, 255, 0.05);
+  --soft-btn-hover: rgba(255, 255, 255, 0.11);
+  --code-bg: #000000;
+  --code-text: #e2e8f0;
+  color-scheme: dark;
 }
+:root[data-theme=light],
 body[data-theme=light] {
-  --bg-tertiary: #e3e5e8;
-  --bg-secondary: #f2f3f5;
+  --bg-tertiary: #e6e8ec;
+  --bg-secondary: #f3f4f7;
   --bg-primary: #ffffff;
   --bg-stage: #111214;
-  --text-normal: #2e3338;
-  --text-muted: #5c636e;
-  --text-header: #060607;
-  --border: #d4d7dc;
+  --text-normal: #2b3036;
+  --text-muted: #5e6672;
+  --text-header: #111317;
+  --border: #d8dce3;
+  --btn-bg: #e4e7ec;
+  --btn-hover: #d5d9e2;
+  --btn-text: #1b1e23;
+  --soft-btn-bg: rgba(17, 19, 23, 0.045);
+  --soft-btn-hover: rgba(17, 19, 23, 0.09);
+  --surface-soft: rgba(17, 19, 23, 0.04);
+  --surface-hover: rgba(17, 19, 23, 0.07);
+  --card-soft-bg: #f8f9fb;
+  --code-bg: #eef0f4;
+  --code-text: #1e2124;
+  --accent-text: #4752c4;
+  color-scheme: light;
 }
-body[data-theme=light] .chat-input {
-  background: #ebedef;
-  color: #060607;
-}
-body[data-theme=light] .msg-text code,
+:root[data-theme=light] .invite-box,
 body[data-theme=light] .invite-box {
   background: #ebedef;
-  color: #1e2124;
+  color: #15803d;
 }
+:root[data-theme=light] .room-voice-pill,
+body[data-theme=light] .room-voice-pill {
+  color: #15803d;
+}
+:root[data-theme=light] .version-mismatch-pill,
+body[data-theme=light] .version-mismatch-pill {
+  color: #92400e;
+}
+:root[data-density=compact] .messages,
 body[data-density=compact] .messages {
   gap: 4px;
   padding: 10px 14px;
 }
+:root[data-density=compact] .msg-header,
 body[data-density=compact] .msg-header {
   font-size: 13px;
 }
+:root[data-density=compact] .msg-text,
 body[data-density=compact] .msg-text {
   font-size: 13px;
   line-height: 1.3;
 }
+:root[data-density=compact] .room-btn,
 body[data-density=compact] .room-btn {
   padding: 5px 8px;
   font-size: 13px;
 }
+:root[data-density=compact] .peer-item,
 body[data-density=compact] .peer-item {
   padding: 4px 8px;
+}
+.brand-wordmark {
+  letter-spacing: -0.01em;
+}
+.hud-status-pill {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.user-footer-actions {
+  position: relative;
+  margin-top: 2px;
+}
+.options-menu-wrap {
+  position: relative;
+  width: 100%;
+}
+.options-popover {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  z-index: 90;
+  flex-direction: column;
+  gap: 2px;
+}
+.options-popover.open {
+  display: flex;
+}
+.options-item {
+  border: none;
+  background: transparent;
+  color: var(--text-normal);
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  transition: background 0.12s, color 0.12s;
+}
+.options-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-header);
+}
+.options-item.danger {
+  color: #f87171;
+}
+.options-item.danger:hover {
+  background: rgba(218, 55, 60, 0.16);
+  color: #ef4444;
+}
+.options-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 6px;
+}
+.settings-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 20px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  overflow-x: auto;
+}
+.settings-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 8px 12px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.settings-tab:hover {
+  color: var(--text-header);
+}
+.settings-tab.active {
+  color: var(--text-header);
+  border-bottom-color: var(--brand);
+}
+.settings-panel {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings-panel.active {
+  display: flex;
+}
+.soft-card {
+  background: var(--card-soft-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.soft-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.soft-card-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-header);
+}
+.soft-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.choice-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.choice-pill {
+  background: var(--soft-btn-bg);
+  color: var(--text-normal);
+  border: 1px solid var(--border);
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+}
+.choice-pill.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
 }
 .btn svg.lucide,
 .network-card-title svg.lucide,
@@ -1081,7 +1376,7 @@ body[data-density=compact] .peer-item {
 }
 .room-count-pill {
   font-size: 10px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface-soft);
   color: var(--text-muted);
   padding: 1px 6px;
   border-radius: 999px;
@@ -1151,7 +1446,7 @@ body[data-density=compact] .peer-item {
   transition: background 0.1s;
 }
 .msg:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-soft);
 }
 .msg-grouped .msg-header {
   display: none;
@@ -1219,13 +1514,14 @@ body[data-density=compact] .peer-item {
   margin-top: 4px;
 }
 .msg-text pre {
-  background: #1e1f22;
-  color: #e2e8f0;
+  background: var(--code-bg);
+  color: var(--code-text);
   padding: 8px 10px;
   border-radius: 6px;
   overflow-x: auto;
   font-size: 12.5px;
   margin: 4px 0;
+  border: 1px solid var(--border);
 }
 .msg-text blockquote {
   border-left: 3px solid var(--border);
@@ -1246,7 +1542,7 @@ body[data-density=compact] .peer-item {
 }
 .msg-reaction-chip {
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-soft);
   color: var(--text-normal);
   border-radius: 999px;
   padding: 1px 7px;
@@ -1258,8 +1554,8 @@ body[data-density=compact] .peer-item {
 }
 .msg-reaction-chip.reacted {
   border-color: var(--brand);
-  background: rgba(88, 101, 242, 0.25);
-  color: #fff;
+  background: rgba(88, 101, 242, 0.2);
+  color: var(--text-header);
 }
 .typing-indicator {
   padding: 2px 18px 4px;
@@ -1511,9 +1807,16 @@ body[data-density=compact] .peer-item {
   background: transparent;
   border: 1px solid transparent;
 }
+.btn-danger {
+  background: var(--red);
+  color: #fff;
+}
+.btn-danger:hover {
+  background: var(--red-hover);
+}
 .room-mini-btn:hover {
   border-color: var(--border);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover);
 }
 .approval-banner {
   display: flex;
@@ -1527,6 +1830,15 @@ body[data-density=compact] .peer-item {
   color: var(--text-header);
   flex-wrap: wrap;
 }
+@media (max-width: 900px) {
+  .settings-tabs {
+    padding: 8px 12px 0;
+  }
+  .options-popover {
+    max-height: 55dvh;
+    overflow-y: auto;
+  }
+}
   </style>
 </head>
 <body>
@@ -1534,87 +1846,115 @@ body[data-density=compact] .peer-item {
   <!-- Barra Lateral -->
   <aside id="sidebar" class="sidebar">
     <div class="server-header">
-      <span>Drocsid</span>
-      <span style="display:flex;align-items:center;gap:5px;">
-        <button id="btnThemeToggle" class="btn icon-btn" onclick="toggleTheme()" title="Alternar tema (Escuro / AMOLED / Claro)">
-          <i data-lucide="sun-moon"></i>
+      <span class="brand-wordmark">Drocsid</span>
+      <span style="display:flex;align-items:center;gap:6px;">
+        <span class="server-badge" id="connectionBadge">Local</span>
+        <button class="btn icon-btn soft-icon-btn" onclick="openSettingsModal('appearance')" title="Configurações">
+          <i data-lucide="settings"></i>
         </button>
-        <button id="btnDensityToggle" class="btn icon-btn" onclick="toggleDensity()" title="Alternar densidade (Confortável / Compacto)">
-          <i data-lucide="rows-3"></i>
-        </button>
-        <span class="server-badge" id="connectionBadge">LOCAL</span>
         <button class="btn sidebar-close-btn" style="padding: 3px 8px;" onclick="toggleMobileSidebar(false)" title="Fechar menu">
           <i data-lucide="x"></i>
         </button>
       </span>
     </div>
 
-    <!-- Cartão de Conexão na Internet (Jogar fora da mesma rede sem VPN) -->
+    <!-- Cartão Compacto de Convite e Conexão -->
     <div class="network-card">
       <div class="network-card-title">
-        <span style="display:flex;align-items:center;gap:5px;"><i data-lucide="globe"></i> Conexão na Internet</span>
+        <span style="display:flex;align-items:center;gap:6px;"><i data-lucide="globe"></i> Convites</span>
         <span style="display:flex;align-items:center;gap:6px;">
-          <span id="tunnelProviderLabel" style="font-size: 10px; color: var(--text-muted);">Pronto</span>
-          <button class="btn icon-btn" style="padding:2px 5px;font-size:10px;" onclick="openTurnModal()" title="Configurar servidor TURN opcional para redes com bloqueio P2P">
-            <i data-lucide="settings"></i>
+          <span id="tunnelProviderLabel" class="network-status-pill">Local</span>
+          <button id="btnToggleNetworkCard" type="button" class="btn icon-btn soft-icon-btn" onclick="toggleNetworkCard()" aria-expanded="false" title="Expandir ou recolher opções de convite">
+            <i data-lucide="chevron-down"></i>
           </button>
         </span>
       </div>
-      <div id="inviteCodeBox" class="invite-box"></div>
-      <div id="inviteQrWrap" class="invite-qr-wrap" style="display: none;"></div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
-        <button id="btnHostTunnel" class="btn" style="background: var(--brand);" onclick="startInternetTunnel()" title="Cria um link/código público gratuito para seus amigos entrarem de qualquer rede">
-          <i data-lucide="radio"></i> <span>Gerar Convite</span>
+      <div class="network-quick-actions">
+        <button id="btnHostTunnel" class="btn" style="background: var(--brand); color: #fff;" onclick="startInternetTunnel()" title="Gerar link e código de convite para amigos em outras redes">
+          <i data-lucide="radio"></i> <span>Convidar</span>
         </button>
-        <button class="btn" onclick="openJoinRemoteModal()" title="Entrar na sala de um amigo usando o código ou link dele">
-          <i data-lucide="link-2"></i> <span>Usar Código</span>
+        <button class="btn soft-btn" onclick="openJoinRemoteModal()" title="Entrar na sala de um amigo com código ou link">
+          <i data-lucide="link-2"></i> <span>Entrar</span>
         </button>
       </div>
-      <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-        <button id="btnCopyInvite" class="btn active-green" style="display: none; flex: 1;" onclick="copyInviteToClipboard()">
-          <i data-lucide="copy"></i> <span>Copiar</span>
-        </button>
-        <button id="btnToggleQr" class="btn" style="display: none; padding: 6px 8px;" onclick="toggleInviteQr()" title="Exibir ou ocultar QR Code para celular">
-          <i data-lucide="qr-code"></i>
-        </button>
-        <button id="btnRotateKey" class="btn" style="display: none; padding: 6px 8px;" onclick="rotateRoomKey()" title="Gerar nova chave da sala e invalidar convites anteriores">
-          <i data-lucide="key-round"></i>
-        </button>
-        <button id="btnStopTunnel" class="btn" style="display: none; padding: 6px 8px; background: var(--red-hover);" onclick="stopInternetTunnel()" title="Parar túnel público da Internet">
-          <i data-lucide="square"></i>
-        </button>
+      <div id="networkDetailsWrap" class="network-details-wrap">
+        <div id="inviteCodeBox" class="invite-box"></div>
+        <div id="inviteQrWrap" class="invite-qr-wrap" style="display: none;"></div>
+        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+          <button id="btnCopyInvite" class="btn active-green" style="display: none; flex: 1;" onclick="copyInviteToClipboard()">
+            <i data-lucide="copy"></i> <span>Copiar</span>
+          </button>
+          <button id="btnToggleQr" class="btn soft-btn" style="display: none; padding: 6px 8px;" onclick="toggleInviteQr()" title="Exibir ou ocultar QR Code">
+            <i data-lucide="qr-code"></i>
+          </button>
+          <button id="btnRotateKey" class="btn soft-btn" style="display: none; padding: 6px 8px;" onclick="rotateRoomKey()" title="Gerar nova chave da sala e invalidar convites antigos">
+            <i data-lucide="key-round"></i>
+          </button>
+          <button id="btnStopTunnel" class="btn" style="display: none; padding: 6px 8px; background: var(--red-hover); color: #fff;" onclick="stopInternetTunnel()" title="Encerrar convite público">
+            <i data-lucide="square"></i>
+          </button>
+        </div>
+        <button type="button" class="soft-link-btn" onclick="openTurnModal()">Configurações avançadas de rede (TURN)</button>
       </div>
     </div>
 
     <div class="sidebar-content">
       <div class="section-title">
-        <span>Salas (Voz + Tela + Chat)</span>
-        <button class="btn" style="padding: 2px 6px; font-size: 11px;" onclick="promptNewRoom()" title="Criar ou entrar em outra sala">+</button>
+        <span>Salas</span>
+        <button class="btn soft-btn" style="padding: 2px 7px; font-size: 12px;" onclick="promptNewRoom()" title="Criar ou entrar em outra sala">+</button>
       </div>
       <div id="roomList"></div>
 
       <div class="section-title" style="margin-top: 14px;">
         <span>Na Sala (<span id="peerCount">0</span>)</span>
-        <button id="btnHostUnbanAll" type="button" class="btn" style="display: none; padding: 2px 6px; font-size: 11px;" onclick="unbanAllPeers()" title="Remover todos os banimentos desta sessão">🔓 Banidos</button>
+        <button id="btnHostUnbanAll" type="button" class="btn soft-btn" style="display: none; padding: 2px 6px; font-size: 11px;" onclick="unbanAllPeers()" title="Remover todos os banimentos desta sessão">🔓 Banidos</button>
       </div>
       <div id="peerList" class="peer-list"></div>
     </div>
 
-    <!-- Controles de Usuário, Voz e Compartilhamento de Tela -->
+    <!-- Controles Essenciais de Chamada + Menu de Opções -->
     <div class="user-panel">
       <div class="user-row">
-        <input id="usernameInput" class="username-input" type="text" placeholder="Seu apelido..." onchange="updateProfile()" />
+        <input id="usernameInput" class="username-input" type="text" placeholder="Seu nome..." onchange="updateProfile()" />
       </div>
       <div class="control-grid">
         <button id="btnVoice" class="btn" onclick="toggleVoiceConnection()">🎙️ Entrar na Voz</button>
         <button id="btnMute" class="btn" onclick="toggleMute()">🎤 Mutar</button>
-        <button id="btnDeaf" class="btn" style="grid-column: span 2;" onclick="toggleDeaf()">🎧 Desativar Áudio (Deafen)</button>
-        <button id="btnGoLive" class="btn btn-golive" onclick="handleGoLiveButton()">🖥️ Compartilhar Tela (Go Live)</button>
+        <button id="btnDeaf" class="btn" onclick="toggleDeaf()" title="Silenciar todo o áudio recebido e o microfone (Ctrl+D)">🎧 Sem Áudio</button>
         <button id="btnWebcam" class="btn" onclick="toggleWebcam()">📷 Câmera</button>
-        <button id="btnSoundboard" class="btn" onclick="toggleSoundboard()">🔊 Efeitos</button>
-        <button id="btnAudioSettings" class="btn" onclick="openAudioSettingsModal()">🎛️ Áudio / PTT</button>
-        <button id="btnVoiceRelay" class="btn" onclick="toggleForceVoiceRelay()" title="Forçar transmissão da voz pelo túnel WebSocket (anti-CGNAT)">🌐 Relay: Auto</button>
-        <button id="btnShutdownApp" class="btn" style="grid-column: span 2; display: none; background: #2b2d31; border: 1px solid var(--border); color: var(--text-muted);" onclick="shutdownHostApp()" title="Encerra o servidor local e o túnel em segundo plano">⏻ Encerrar App</button>
+        <button id="btnGoLive" class="btn btn-golive" onclick="handleGoLiveButton()">🖥️ Transmitir Tela</button>
+      </div>
+      <div class="user-footer-actions">
+        <div id="optionsMenuWrap" class="options-menu-wrap">
+          <button id="btnOptionsMenu" type="button" class="btn soft-btn" style="width: 100%; justify-content: space-between;" onclick="toggleOptionsMenu()" aria-expanded="false">
+            <span style="display:flex;align-items:center;gap:6px;"><i data-lucide="sliders-horizontal"></i> Opções e Ajustes</span>
+            <i data-lucide="chevron-down"></i>
+          </button>
+          <div id="optionsPopover" class="options-popover" role="menu">
+            <button type="button" class="options-item" onclick="closeOptionsMenu(); openAudioSettingsModal()">
+              <span>🎛️</span><span>Áudio, Microfone e Tecla PTT</span>
+            </button>
+            <button type="button" class="options-item" onclick="openSettingsModal('appearance')">
+              <span>🎨</span><span>Aparência e Temas</span>
+            </button>
+            <button type="button" class="options-item" onclick="openSettingsModal('network')">
+              <span>🌐</span><span>Rede e Conexão</span>
+            </button>
+            <button type="button" class="options-item" onclick="openSettingsModal('guides')">
+              <span>💡</span><span>Como funcionam os motores</span>
+            </button>
+            <button type="button" class="options-item" onclick="closeOptionsMenu(); toggleSoundboard()">
+              <span>✨</span><span>Efeitos sonoros no chat</span>
+            </button>
+            <button type="button" class="options-item" onclick="closeOptionsMenu(); openJoinRemoteModal()">
+              <span>🔗</span><span>Entrar com código de amigo</span>
+            </button>
+            <div class="options-divider"></div>
+            <button id="btnShutdownApp" type="button" class="options-item danger" style="display: none;" onclick="closeOptionsMenu(); shutdownHostApp()">
+              <span>⏻</span><span>Encerrar aplicativo</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </aside>
@@ -1623,39 +1963,39 @@ body[data-density=compact] .peer-item {
   <main id="mainArea" class="main-area">
     <header class="topbar">
       <div class="topbar-left">
-        <button class="btn mobile-menu-btn" style="padding: 5px 9px;" onclick="toggleMobileSidebar(true)">☰ Salas</button>
+        <button class="btn mobile-menu-btn soft-btn" style="padding: 5px 9px;" onclick="toggleMobileSidebar(true)">☰ Salas</button>
         <span class="room-title" id="currentRoomLabel">#geral</span>
-        <span class="engine-pill" id="activeServerPill">Servidor Local</span>
+        <span class="engine-pill" id="activeServerPill" style="display: none;">Local</span>
         <span class="version-mismatch-pill" id="versionMismatchBadge" style="display: none;"></span>
       </div>
       <div class="telemetry-hud" id="telemetryHud">
         <div class="view-switcher">
-          <button id="btnViewSplit" class="btn active-view" style="padding: 3px 7px; font-size: 11px;" onclick="setLayoutViewMode('split')" title="Mostrar Palco e Chat">📐 Dividido</button>
-          <button id="btnViewStage" class="btn" style="padding: 3px 7px; font-size: 11px;" onclick="setLayoutViewMode('stage')" title="Focar apenas no Vídeo">🎬 Palco</button>
-          <button id="btnViewChat" class="btn" style="padding: 3px 7px; font-size: 11px;" onclick="setLayoutViewMode('chat')" title="Focar apenas no Chat">💬 Chat</button>
+          <button id="btnViewSplit" class="btn active-view" style="padding: 3px 8px; font-size: 11px;" onclick="setLayoutViewMode('split')" title="Mostrar Palco e Chat">Dividido</button>
+          <button id="btnViewStage" class="btn" style="padding: 3px 8px; font-size: 11px;" onclick="setLayoutViewMode('stage')" title="Focar apenas no Vídeo">Palco</button>
+          <button id="btnViewChat" class="btn" style="padding: 3px 8px; font-size: 11px;" onclick="setLayoutViewMode('chat')" title="Focar apenas no Chat">Chat</button>
         </div>
-        <span id="hudStatus">Pronto</span>
+        <span id="hudStatus" class="hud-status-pill">Pronto</span>
       </div>
     </header>
 
     <button id="btnUnlockAudio" class="unlock-audio-banner" style="display: none;" onclick="unlockBrowserAudio()">🔇 Som bloqueado pelo navegador — Toque aqui para ativar o áudio</button>
 
-    <!-- Palco de Compartilhamento de Tela (Stage) -->
+    <!-- Palco de Transmissão (Stage) -->
     <section class="stage-container" id="stageContainer">
       <div class="stage-header">
         <div class="stage-tabs" id="streamTabs">
-          <span style="color: var(--text-muted);">Nenhuma transmissão ativa no momento</span>
+          <span style="color: var(--text-muted);">Nenhuma transmissão ativa</span>
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted);" title="Volume do Palco (Go Live / Vídeo)">
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted);" title="Volume da transmissão no palco">
             <i data-lucide="volume-2"></i>
             <input id="stageVolumeSlider" type="range" min="0" max="100" value="100" style="width: 68px; accent-color: var(--brand); cursor: pointer;" oninput="setStageVolume(this.value)" />
           </label>
           <button id="btnStageSelfPreview" class="btn" style="display: none; padding: 4px 8px;" onclick="setSelfPreviewEnabled()" title="Alternar pré-visualização da própria transmissão (evita espelho infinito e tela verde)"><i data-lucide="eye"></i> <span id="btnStageSelfPreviewLabel">Prévia</span></button>
-          <button id="btnGridMode" class="btn" style="padding: 4px 8px;" onclick="toggleGridMode()" title="Grade Multi-Stream (até 4 telas)"><i data-lucide="grid-2x2"></i> Grade</button>
-          <button id="btnLaserMode" class="btn" style="padding: 4px 8px;" onclick="toggleLaserMode()" title="Ponteiro Laser compartilhado no vídeo"><i data-lucide="crosshair"></i> Laser</button>
-          <button id="btnTheaterMode" class="btn" style="padding: 4px 8px;" onclick="toggleTheaterMode()" title="Recolher chat (Modo Teatro)"><i data-lucide="clapperboard"></i> Teatro</button>
-          <button id="btnPiP" class="btn" style="padding: 4px 8px;" onclick="togglePiP()" title="Picture-in-Picture (Modos 1, 2 e 3)"><i data-lucide="picture-in-picture-2"></i> PiP</button>
+          <button id="btnGridMode" class="btn" style="padding: 4px 8px;" onclick="toggleGridMode()" title="Grade para até 4 telas"><i data-lucide="grid-2x2"></i> Grade</button>
+          <button id="btnLaserMode" class="btn" style="padding: 4px 8px;" onclick="toggleLaserMode()" title="Apontador laser na tela"><i data-lucide="crosshair"></i> Laser</button>
+          <button id="btnTheaterMode" class="btn" style="padding: 4px 8px;" onclick="toggleTheaterMode()" title="Expandir vídeo"><i data-lucide="clapperboard"></i> Teatro</button>
+          <button id="btnPiP" class="btn" style="padding: 4px 8px;" onclick="togglePiP()" title="Janela flutuante"><i data-lucide="picture-in-picture-2"></i> Flutuante</button>
           <button class="btn" style="padding: 4px 8px;" onclick="toggleStageFullscreen()"><i data-lucide="maximize"></i> Tela Cheia</button>
         </div>
       </div>
@@ -1671,18 +2011,17 @@ body[data-density=compact] .peer-item {
           <span class="stage-self-preview-badge">AO VIVO</span>
           <h3>Você está transmitindo sua tela</h3>
           <p id="stageSelfPreviewDesc">
-            A pré-visualização ao vivo foi pausada para evitar espelho infinito, cursor duplicado e distorção verde de cor ao capturar a própria tela.
+            Pré-visualização pausada para evitar espelho infinito, cursor duplicado e distorção verde de cor.
           </p>
           <div class="stage-self-preview-actions">
             <button type="button" class="btn" id="btnToggleSelfPreview" onclick="setSelfPreviewEnabled(true)"><i data-lucide="eye"></i> Mostrar Pré-visualização</button>
-            <button type="button" class="btn btn-danger" onclick="stopScreenShare()"><i data-lucide="square"></i> Parar Compartilhamento</button>
+            <button type="button" class="btn btn-danger" onclick="stopScreenShare()"><i data-lucide="square"></i> Parar Transmissão</button>
           </div>
         </div>
         <div class="stage-empty" id="stageEmpty">
-          <h3>Compartilhamento de Tela ("Go Live") — Local & Internet</h3>
+          <h3>Pronto para conversar e compartilhar</h3>
           <p>
-            • Para chamar amigos de <strong>outras redes/cidades sem VPN</strong>, clique em <strong>📡 Gerar Convite</strong> na barra esquerda e envie o código gerado.<br/>
-            • Clique em <strong>🖥️ Compartilhar Tela (Go Live)</strong> para transmitir sua tela, janela ou câmera!
+            Entre na voz, mande mensagens ou clique em <strong>Transmitir Tela</strong> na barra esquerda para mostrar algo na sala.
           </p>
         </div>
       </div>
@@ -1697,7 +2036,7 @@ body[data-density=compact] .peer-item {
     <section class="chat-container" id="chatContainer">
       <div class="messages" id="messagesContainer"></div>
       <div id="soundboardBar" class="soundboard-bar">
-        <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;">SOUNDBOARD:</span>
+        <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;">Efeitos:</span>
         <button type="button" class="btn" style="padding: 4px 9px;" onclick="sendSoundEffect('party')">🎉 Festa</button>
         <button type="button" class="btn" style="padding: 4px 9px;" onclick="sendSoundEffect('alert')">🚨 Alerta</button>
         <button type="button" class="btn" style="padding: 4px 9px;" onclick="sendSoundEffect('badum')">🥁 Ba-dum</button>
@@ -1714,8 +2053,11 @@ body[data-density=compact] .peer-item {
         <button type="button" id="btnAttachImage" class="btn icon-btn" onclick="triggerChatImagePicker()" title="Anexar imagem (ou arraste/Ctrl+V)">
           <i data-lucide="paperclip"></i>
         </button>
-        <input id="chatInput" class="chat-input" type="text" placeholder="Conversar na sala (Markdown, **negrito**, `código`, Ctrl+V ou arraste imagem)..." autocomplete="off" />
-        <button type="submit" class="btn" style="background: var(--brand); padding: 0 16px;"><i data-lucide="send"></i> Enviar</button>
+        <button type="button" id="btnSoundboard" class="btn icon-btn" onclick="toggleSoundboard()" title="Efeitos sonoros da sala">
+          <i data-lucide="sparkles"></i>
+        </button>
+        <input id="chatInput" class="chat-input" type="text" placeholder="Escrever mensagem na sala..." autocomplete="off" />
+        <button type="submit" class="btn" style="background: var(--brand); color: #fff; padding: 0 16px;"><i data-lucide="send"></i> Enviar</button>
       </form>
     </section>
 
@@ -1723,206 +2065,348 @@ body[data-density=compact] .peer-item {
     <nav id="mobileActionBar" class="mobile-action-bar">
       <button type="button" class="btn" onclick="toggleMobileSidebar(true)">☰ Salas</button>
       <button type="button" id="mBtnVoice" class="btn" onclick="toggleVoiceConnection()">🎙️ Voz</button>
-      <button type="button" id="mBtnMute" class="btn" onclick="toggleMute()">🎤 Mute</button>
+      <button type="button" id="mBtnMute" class="btn" onclick="toggleMute()">🎤 Mutar</button>
       <button type="button" id="mBtnWebcam" class="btn" onclick="toggleWebcam()">📷 Cam</button>
-      <button type="button" id="mBtnGoLive" class="btn" style="background: var(--brand);" onclick="handleGoLiveButton()">🖥️ Go Live</button>
+      <button type="button" id="mBtnGoLive" class="btn" style="background: var(--brand); color: #fff;" onclick="handleGoLiveButton()">🖥️ Tela</button>
     </nav>
   </main>
 
-  <!-- Modal Go Live (Equivalente ao PresentDesktopSourcePicker / getDesktopCaptureSources) -->
+  <!-- Modal de Transmissão de Tela -->
   <div class="modal-backdrop" id="goLiveModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>Compartilhar Tela (Go Live)</h2>
-        <button class="btn" onclick="closeGoLiveModal()">✕</button>
+        <h2>Transmitir Tela</h2>
+        <button class="btn soft-btn" onclick="closeGoLiveModal()">✕</button>
       </div>
       <div class="modal-body">
         <div class="mode-selector">
           <div id="modeWebRtcCard" class="mode-card selected" onclick="selectShareMode('web_rtc')">
-            <h4>⚡ Modo 1: WebRTC + TURN (60 FPS + Áudio)</h4>
-            <p>Captura tela, janela de jogo ou aba com áudio do sistema (<code>soundshare_loopback</code>) usando STUN + TURN Relay.</p>
+            <div class="mode-card-head">
+              <h4>⚡ Direto (P2P)</h4>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('web_rtc', event)" title="Ver como este modo funciona">? Como funciona</button>
+            </div>
+            <p>Menor atraso e áudio do computador; ideal para a maioria das chamadas.</p>
+            <div id="modeHelpWebRtc" class="mode-help-box">
+              Envia vídeo e áudio diretamente entre você e os participantes sem passar pelo servidor intermediário quando a rede permite, garantindo resposta rápida em jogos e vídeos.
+            </div>
           </div>
           <div id="modeRelayCard" class="mode-card" onclick="selectShareMode('universal_relay')">
-            <h4>🌐 Modo 2: Relay Universal (Anti-CGNAT)</h4>
-            <p>Captura qualquer janela/tela e transmite pelo túnel WSS com backpressure <code>SignalVideoOutputSinkReady</code>. Alternativa para redes com UDP/CGNAT bloqueado (sujeito à banda de upload do anfitrião).</p>
+            <div class="mode-card-head">
+              <h4>🌐 Modo Compatível</h4>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('universal_relay', event)" title="Ver como este modo funciona">? Como funciona</button>
+            </div>
+            <p>Usa o túnel da sala quando redes restritas bloqueiam conexão direta.</p>
+            <div id="modeHelpRelay" class="mode-help-box">
+              Transmite os quadros pela conexão segura principal da sala com controle automático de fila, funcionando mesmo em operadoras ou roteadores mais fechados (depende da banda de upload do anfitrião).
+            </div>
           </div>
           <div id="modeNativeCard" class="mode-card" onclick="selectShareMode('native_host')">
-            <h4>🦀 Modo 3: Motor Nativo Rust (DXGI + WASAPI)</h4>
-            <p>Usa captura GPU via DXGI até 60 FPS (fallback GDI) e áudio do sistema via WASAPI na máquina host.</p>
+            <div class="mode-card-head">
+              <h4>🖥️ Captura do PC</h4>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('native_host', event)" title="Ver como este modo funciona">? Como funciona</button>
+            </div>
+            <p>Captura direta do computador do anfitrião com alta estabilidade.</p>
+            <div id="modeHelpNative" class="mode-help-box">
+              O próprio aplicativo captura a tela e o áudio do sistema diretamente no Windows do anfitrião, sem depender da janela do navegador. Ideal para jogos em tela cheia ou longas sessões.
+            </div>
           </div>
         </div>
 
         <div id="nativeScreensSection" style="display: none;">
           <div class="section-title" style="padding-left: 0;">
-            <span>Monitores e Janelas Detectados pelo Rust (GetScreenPreviews)</span>
-            <button class="btn" style="padding: 3px 8px;" onclick="loadNativeScreenPreviews()">↻ Atualizar Miniaturas</button>
+            <span>Telas e janelas disponíveis</span>
+            <button class="btn soft-btn" style="padding: 3px 8px;" onclick="loadNativeScreenPreviews()">↻ Atualizar</button>
           </div>
           <div id="nativePreviewGrid" class="preview-grid"></div>
         </div>
 
         <div id="browserCaptureSourceGroup" class="field-group">
-          <label>Fonte de Vídeo no Navegador (PC ou Celular)</label>
+          <label>O que transmitir</label>
           <select id="selectCaptureSource">
-            <option value="display" selected>🖥️ Tela / Janela / Aba (Navegador PC)</option>
-            <option value="camera_env">📱 Câmera Traseira no Palco (Celular)</option>
-            <option value="camera_user">🤳 Câmera Frontal no Palco (Celular / Webcam)</option>
+            <option value="display" selected>🖥️ Tela, janela ou aba</option>
+            <option value="camera_env">📱 Câmera traseira</option>
+            <option value="camera_user">🤳 Câmera frontal / Webcam</option>
           </select>
         </div>
 
         <div class="settings-row">
           <div class="field-group">
-            <label>Resolução (Qualidade)</label>
+            <label>Qualidade</label>
             <select id="selectResolution">
-              <option value="1280x720">720p (1280x720 - Leve)</option>
-              <option value="1920x1080" selected>1080p (1920x1080 - Full HD)</option>
-              <option value="2560x1440">1440p (2560x1440 - QHD)</option>
+              <option value="1280x720">720p (Leve)</option>
+              <option value="1920x1080" selected>1080p (Full HD)</option>
+              <option value="2560x1440">1440p (Alta definição)</option>
             </select>
           </div>
           <div class="field-group">
-            <label>Taxa de Quadros (FPS)</label>
+            <label>Fluidez (FPS)</label>
             <select id="selectFps">
               <option value="15">15 FPS (Economia)</option>
               <option value="30" selected>30 FPS (Padrão)</option>
-              <option value="60">60 FPS (Fluido - Jogos)</option>
+              <option value="60">60 FPS (Jogos)</option>
             </select>
           </div>
           <div class="field-group">
-            <label>Áudio do Sistema</label>
+            <label>Som da transmissão</label>
             <select id="selectAudioOrQuality">
-              <option value="audio_on" selected>Compartilhar Áudio do Sistema</option>
-              <option value="audio_off">Apenas Vídeo (Sem Áudio)</option>
+              <option value="audio_on" selected>Compartilhar áudio do computador</option>
+              <option value="audio_off">Somente vídeo (Sem áudio)</option>
             </select>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeGoLiveModal()">Cancelar</button>
-        <button class="btn" style="background: var(--brand); padding: 8px 18px;" onclick="confirmStartScreenShare()">🔴 Iniciar Transmissão (Go Live)</button>
+        <button class="btn soft-btn" onclick="closeGoLiveModal()">Cancelar</button>
+        <button class="btn" style="background: var(--brand); color: #fff; padding: 8px 18px;" onclick="confirmStartScreenShare()">🔴 Iniciar Transmissão</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal para Conectar ao Servidor Remoto de um Amigo -->
+  <!-- Modal para Conectar à Sala de um Amigo -->
   <div class="modal-backdrop" id="joinRemoteModal">
-    <div class="modal" style="width: 480px;">
+    <div class="modal" style="width: 460px;">
       <div class="modal-header">
-        <h2>🔗 Conectar à Sala de um Amigo (Internet)</h2>
-        <button class="btn" onclick="closeJoinRemoteModal()">✕</button>
+        <h2>🔗 Entrar na Sala de um Amigo</h2>
+        <button class="btn soft-btn" onclick="closeJoinRemoteModal()">✕</button>
       </div>
       <div class="modal-body">
         <p style="font-size: 13px; color: var(--text-muted); line-height: 1.45;">
-          Cole abaixo o <strong>Código de Convite</strong> (ex.: <code>DROCSID-xxxx-xxxx</code>) ou o <strong>Link HTTPS</strong> que seu amigo gerou no Drocsid dele:
+          Cole o <strong>Código de Convite</strong> (ex.: <code>DROCSID-xxxx-xxxx</code>) ou o <strong>Link</strong> enviado pelo seu amigo:
         </p>
         <div class="field-group">
-          <label>Código de Convite ou URL do Servidor</label>
+          <label>Código ou Link do Convite</label>
           <input id="remoteInviteInput" type="text" placeholder="Ex: DROCSID-cool-frog-1234 ou https://..." />
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="resetToLocalServer()">Voltar ao Meu Servidor Local</button>
-        <button class="btn" style="background: var(--brand); padding: 8px 16px;" onclick="connectToFriendInvite()">Conectar Agora</button>
+        <button class="btn soft-btn" onclick="resetToLocalServer()">Voltar à Sala Local</button>
+        <button class="btn" style="background: var(--brand); color: #fff; padding: 8px 16px;" onclick="connectToFriendInvite()">Conectar</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal de Configuração TURN (Opcional - P0-6) -->
-  <div class="modal-backdrop" id="turnModal">
-    <div class="modal" style="width: 480px;">
+  <!-- Modal de Configurações Unificado (Aparência, Rede & Guias Sob Demanda) -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal" style="width: 560px; max-width: 96vw;">
       <div class="modal-header">
-        <h2>⚙️ Servidor TURN (Opcional)</h2>
-        <button class="btn" onclick="closeTurnModal()">✕</button>
+        <h2>⚙️ Configurações</h2>
+        <button type="button" class="btn soft-btn" onclick="closeSettingsModal()">✕</button>
+      </div>
+      <div class="settings-tabs" role="tablist">
+        <button type="button" class="settings-tab active" data-settings-tab="appearance" onclick="selectSettingsTab('appearance')">🎨 Aparência</button>
+        <button type="button" class="settings-tab" data-settings-tab="network" onclick="selectSettingsTab('network')">🌐 Rede e Conexão</button>
+        <button type="button" class="settings-tab" data-settings-tab="guides" onclick="selectSettingsTab('guides')">💡 Como funciona</button>
+      </div>
+      <div class="modal-body">
+        <!-- Aba Aparência -->
+        <div class="settings-panel active" data-settings-panel="appearance">
+          <div class="soft-card">
+            <div class="soft-card-title">Tema visual</div>
+            <p class="soft-card-desc">Escolha as cores que forem mais confortáveis para você:</p>
+            <div class="choice-pills">
+              <button type="button" class="btn choice-pill" data-theme-choice="dark" onclick="setTheme('dark')">🌙 Escuro</button>
+              <button type="button" class="btn choice-pill" data-theme-choice="amoled" onclick="setTheme('amoled')">🖤 AMOLED</button>
+              <button type="button" class="btn choice-pill" data-theme-choice="light" onclick="setTheme('light')">☀️ Claro</button>
+            </div>
+            <button id="btnThemeToggle" type="button" class="btn soft-btn" style="margin-top: 8px; width: fit-content;" onclick="toggleTheme()">🎨 Alternar próximo tema</button>
+          </div>
+
+          <div class="soft-card">
+            <div class="soft-card-title">Espaçamento da interface</div>
+            <p class="soft-card-desc">Ajuste o espaço entre mensagens e listas de salas:</p>
+            <div class="choice-pills">
+              <button type="button" class="btn choice-pill" data-density-choice="cozy" onclick="setDensity('cozy')">Confortável</button>
+              <button type="button" class="btn choice-pill" data-density-choice="compact" onclick="setDensity('compact')">Compacto</button>
+            </div>
+            <button id="btnDensityToggle" type="button" class="btn soft-btn" style="margin-top: 8px; width: fit-content;" onclick="toggleDensity()">↕️ Alternar espaçamento</button>
+          </div>
+
+          <div class="soft-card">
+            <label class="audio-check-row">
+              <input id="showTechDetailsCheckbox" type="checkbox" onchange="toggleShowTechDetails(this.checked)" />
+              <span>Mostrar detalhes extras na barra superior (FPS e rota da chamada)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Aba Rede e Conexão -->
+        <div class="settings-panel" data-settings-panel="network">
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div>
+                <div class="soft-card-title">Modo compatível para voz</div>
+                <p class="soft-card-desc">Por padrão o Drocsid usa conexão direta e só muda automaticamente se sua rede bloquear.</p>
+              </div>
+              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('helpVoiceRelayCard')">? Como funciona</button>
+            </div>
+            <button id="btnVoiceRelay" type="button" class="btn soft-btn" onclick="toggleForceVoiceRelay()">🌐 Rota de Voz: Automático</button>
+            <div id="helpVoiceRelayCard" class="mode-help-box" style="margin-top: 8px;">
+              No modo <strong>Automático</strong>, o áudio vai direto entre você e seus amigos. Caso seu provedor bloqueie conexões diretas, o aplicativo alterna sozinho para o túnel seguro. Ative o modo forçado apenas se notar picotes constantes.
+            </div>
+          </div>
+
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div>
+                <div class="soft-card-title">Servidor de apoio (TURN)</div>
+                <p class="soft-card-desc">Recurso opcional caso queira usar um servidor intermediário próprio.</p>
+              </div>
+              <button type="button" class="btn soft-btn" onclick="closeSettingsModal(); openTurnModal()">Configurar</button>
+            </div>
+          </div>
+
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div>
+                <div class="soft-card-title">Áudio, Microfone e Tecla para Falar</div>
+                <p class="soft-card-desc">Escolha microfone, fone, redução de ruído e atalho de fala.</p>
+              </div>
+              <button type="button" class="btn soft-btn" onclick="closeSettingsModal(); openAudioSettingsModal()">Abrir</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aba Como funciona -->
+        <div class="settings-panel" data-settings-panel="guides">
+          <p class="soft-card-desc" style="margin-bottom: 4px;">
+            Abra apenas os cartões que tiver curiosidade de entender:
+          </p>
+
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div class="soft-card-title">⚡ Direto vs 🌐 Modo Compatível vs 🖥️ Captura do PC</div>
+              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideEnginesBody')">Ver explicação</button>
+            </div>
+            <div id="guideEnginesBody" class="mode-help-box">
+              <strong>Direto (P2P):</strong> envia vídeo e som direto entre os computadores da sala, ideal para filmes e jogos com baixa latência.<br/>
+              <strong>Modo Compatível:</strong> passa os dados pelo túnel da sala — ótimo quando a operadora bloqueia conexões diretas.<br/>
+              <strong>Captura do PC:</strong> disponível para o anfitrião capturar a tela inteira direto do Windows com alta estabilidade.
+            </div>
+          </div>
+
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div class="soft-card-title">🎙️ Como funcionam Voz e Redução de Ruído</div>
+              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideAudioBody')">Ver explicação</button>
+            </div>
+            <div id="guideAudioBody" class="mode-help-box">
+              O filtro inteligente reduz ruídos constantes de fundo (teclado, ventilador) antes de enviar sua voz. Você também pode ativar a opção de apertar uma tecla para falar e ajustar o nível mínimo do microfone em <em>Opções → Áudio</em>.
+            </div>
+          </div>
+
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div class="soft-card-title">🔒 Convites e Segurança</div>
+              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideSecurityBody')">Ver explicação</button>
+            </div>
+            <div id="guideSecurityBody" class="mode-help-box">
+              Só quem tem o link completo ou código gerado por você consegue acessar suas salas. Você pode gerar uma nova chave a qualquer momento no cartão <strong>Convites</strong> para invalidar links antigos.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button id="btnShutdownAppSettings" type="button" class="btn" style="display: none; background: var(--red-hover); color: #fff;" onclick="closeSettingsModal(); shutdownHostApp()">⏻ Encerrar App</button>
+        <button type="button" class="btn" style="background: var(--brand); color: #fff; margin-left: auto;" onclick="closeSettingsModal()">Concluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Configuração de Servidor de Apoio (TURN) -->
+  <div class="modal-backdrop" id="turnModal">
+    <div class="modal" style="width: 460px;">
+      <div class="modal-header">
+        <h2>🌐 Servidor de Apoio (Opcional)</h2>
+        <button class="btn soft-btn" onclick="closeTurnModal()">✕</button>
       </div>
       <div class="modal-body">
         <p style="font-size: 13px; color: var(--text-muted); line-height: 1.45;">
-          Se você e seus amigos estiverem em redes com NAT/CGNAT restrito e o WebRTC falhar, o Drocsid alterna automaticamente para o <strong>Relay pelo servidor</strong>. Opcionalmente, informe um servidor TURN próprio ou da Metered/Cloudflare:
+          Na maioria das vezes você não precisa preencher nada aqui: o Drocsid alterna para o modo compatível automaticamente. Preencha apenas se possuir um servidor TURN próprio:
         </p>
         <div class="field-group">
-          <label>URL do Servidor TURN (ex: turn:seu-servidor:3478)</label>
-          <input id="turnUrlInput" type="text" placeholder="turn:..." />
+          <label>Endereço do servidor</label>
+          <input id="turnUrlInput" type="text" placeholder="turn:seu-servidor:3478" />
         </div>
         <div class="field-group">
-          <label>Usuário TURN</label>
+          <label>Usuário</label>
           <input id="turnUserInput" type="text" placeholder="usuario" />
         </div>
         <div class="field-group">
-          <label>Senha / Credencial TURN</label>
+          <label>Senha / Credencial</label>
           <input id="turnPassInput" type="password" placeholder="senha" />
         </div>
         <label id="shareTurnRow" style="display: none; align-items: center; gap: 8px; font-size: 13px; color: var(--text-normal); cursor: pointer;">
           <input id="shareTurnCheckbox" type="checkbox" style="width: 16px; height: 16px; accent-color: var(--brand);" />
-          Compartilhar esta configuração TURN com convidados autenticados da sala
+          Compartilhar esta configuração com convidados da sala
         </label>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="clearTurnConfig()">Limpar TURN</button>
-        <button class="btn" style="background: var(--brand); padding: 8px 16px;" onclick="saveTurnConfig()">Salvar</button>
+        <button class="btn soft-btn" onclick="clearTurnConfig()">Limpar</button>
+        <button class="btn" style="background: var(--brand); color: #fff; padding: 8px 16px;" onclick="saveTurnConfig()">Salvar</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal de Configuração de Áudio, Supressão IA (RNNoise) e Push-to-Talk (P2-3 + Itens 1 e 5) -->
+  <!-- Modal de Áudio, Microfone e Tecla para Falar -->
   <div class="modal-backdrop" id="audioSettingsModal">
     <div class="modal" style="width: 520px; max-width: 96vw;">
       <div class="modal-header">
-        <h2>🎛️ Áudio, Supressão IA & Push-to-Talk</h2>
-        <button class="btn" onclick="closeAudioSettingsModal()">✕</button>
+        <h2>🎛️ Áudio e Microfone</h2>
+        <button class="btn soft-btn" onclick="closeAudioSettingsModal()">✕</button>
       </div>
       <div class="modal-body" style="gap: 12px;">
         <div class="field-group">
-          <label>Microfone de Entrada</label>
+          <label>Microfone de entrada</label>
           <select id="micSelect"></select>
         </div>
         <div class="field-group">
-          <label>Alto-Falante / Fone de Saída</label>
+          <label>Fone / Alto-falante de saída</label>
           <select id="speakerSelect"></select>
         </div>
         <label class="audio-check-row">
           <input id="rnnoiseCheckbox" type="checkbox" />
-          <span>Supressão de Ruído IA (<strong>RNNoise</strong> WASM a 48 kHz)</span>
+          <span>Redução inteligente de ruído de fundo</span>
         </label>
         <div class="audio-slider-row">
           <div class="audio-slider-head">
-            <label for="micGainRange">Ganho do Microfone</label>
+            <label for="micGainRange">Volume do microfone</label>
             <span id="micGainValue" class="audio-slider-val">100%</span>
           </div>
           <input id="micGainRange" type="range" min="20" max="220" step="5" value="100" oninput="previewMicGainChange(this.value)" />
         </div>
         <div class="audio-slider-row">
           <div class="audio-slider-head">
-            <label for="vadThresholdRange">Sensibilidade VAD (portão de voz)</label>
+            <label for="vadThresholdRange">Sensibilidade para abrir microfone</label>
             <span id="vadThresholdValue" class="audio-slider-val">1.5%</span>
           </div>
           <input id="vadThresholdRange" type="range" min="3" max="80" step="1" value="15" oninput="previewVadThresholdChange(this.value)" />
         </div>
         <div class="vu-row">
-          <div class="vu-bar-wrap" title="Nível atual de entrada vs limiar VAD">
+          <div class="vu-bar-wrap" title="Nível atual da voz vs limite configurado">
             <div class="vu-bar-fill" id="micVuFill"></div>
             <div class="vu-threshold-mark" id="micVuThresholdMark"></div>
           </div>
-          <button class="btn" id="btnMicTest" type="button" onclick="toggleMicLoopbackTest()">🎧 Testar Microfone</button>
+          <button class="btn soft-btn" id="btnMicTest" type="button" onclick="toggleMicLoopbackTest()">🎧 Testar Microfone</button>
         </div>
         <div class="ptt-config-box">
           <label class="audio-check-row">
             <input id="pttEnabledCheckbox" type="checkbox" />
-            <span>Ativar Push-to-Talk</span>
+            <span>Falar apenas ao segurar uma tecla (Aperto para Falar)</span>
           </label>
           <div class="ptt-bind-row">
-            <span>Tecla / Botão PTT:</span>
+            <span>Tecla / Botão:</span>
             <strong id="pttBindingLabel">V (ou Espaço padrão)</strong>
-            <button class="btn" id="btnBindPttKey" type="button" onclick="startCapturePttBind()">🎹 Capturar Tecla/Mouse</button>
+            <button class="btn soft-btn" id="btnBindPttKey" type="button" onclick="startCapturePttBind()">🎹 Definir Tecla</button>
           </div>
           <label class="audio-check-row" id="globalPttRow" style="display: none;">
             <input id="globalPttCheckbox" type="checkbox" />
-            <span>Push-to-Talk Global no Windows (funciona com o app minimizado — Host)</span>
+            <span>Funcionar mesmo com o aplicativo minimizado (Windows)</span>
           </label>
         </div>
-        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
-          Obs.: A seleção de saída (<code>setSinkId</code>) requer navegador Chromium desktop. A captura neural RNNoise opera em 48 kHz offline.
-        </p>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeAudioSettingsModal()">Cancelar</button>
-        <button class="btn" style="background: var(--brand); padding: 8px 16px;" onclick="saveAudioSettings()">Aplicar</button>
+        <button class="btn soft-btn" onclick="closeAudioSettingsModal()">Cancelar</button>
+        <button class="btn" style="background: var(--brand); color: #fff; padding: 8px 16px;" onclick="saveAudioSettings()">Aplicar</button>
       </div>
     </div>
   </div>
@@ -1985,7 +2469,7 @@ body[data-density=compact] .peer-item {
   })();
 
   // web/src/state.js
-  var BASE_DOC_TITLE = "Drocsid — Chat, Voz & Go Live (Internet & P2P)";
+  var BASE_DOC_TITLE = "Drocsid";
   var APP_VERSION = true ? "0.4.0" : "0.4.0";
   var VOICE_RELAY_SAMPLE_RATE = 16e3;
   var VOICE_RELAY_CHUNK_SAMPLES = 640;
@@ -2061,6 +2545,8 @@ body[data-density=compact] .peer-item {
     chatEntriesById: /* @__PURE__ */ new Map(),
     theme: typeof localStorage !== "undefined" ? readStorage(localStorage, "drocsid_theme") || "dark" : "dark",
     density: typeof localStorage !== "undefined" ? readStorage(localStorage, "drocsid_density") || "cozy" : "cozy",
+    showTechDetails: typeof localStorage !== "undefined" ? readStorage(localStorage, "drocsid_show_tech") === "true" : false,
+    networkCardOpen: false,
     qrExpanded: false,
     localAudioStream: null,
     localDisplayStream: null,
@@ -3969,6 +4455,16 @@ body[data-density=compact] .peer-item {
     return element.parentNode?.replaceChild(svgElement, element);
   };
 
+  // node_modules/lucide/dist/esm/icons/chevron-down.mjs
+  var ChevronDown = [["path", { d: "m6 9 6 6 6-6" }]];
+
+  // node_modules/lucide/dist/esm/icons/circle-question-mark.mjs
+  var CircleQuestionMark = [
+    ["circle", { cx: "12", cy: "12", r: "10" }],
+    ["path", { d: "M9 9.5a3 2.5 0 016 0c0 2-2 2-3 3.5" }],
+    ["path", { d: "M12 17h.01" }]
+  ];
+
   // node_modules/lucide/dist/esm/icons/clapperboard.mjs
   var Clapperboard = [
     ["path", { d: "m12.296 3.464 3.02 3.956" }],
@@ -4051,6 +4547,13 @@ body[data-density=compact] .peer-item {
     ["path", { d: "M16 21h3a2 2 0 0 0 2-2v-3" }]
   ];
 
+  // node_modules/lucide/dist/esm/icons/menu.mjs
+  var Menu = [
+    ["path", { d: "M4 5h16" }],
+    ["path", { d: "M4 12h16" }],
+    ["path", { d: "M4 19h16" }]
+  ];
+
   // node_modules/lucide/dist/esm/icons/paperclip.mjs
   var Paperclip = [
     [
@@ -4087,6 +4590,12 @@ body[data-density=compact] .peer-item {
         d: "M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
       }
     ]
+  ];
+
+  // node_modules/lucide/dist/esm/icons/power.mjs
+  var Power = [
+    ["path", { d: "M12 2v10" }],
+    ["path", { d: "M18.4 6.6a9 9 0 1 1-12.77.04" }]
   ];
 
   // node_modules/lucide/dist/esm/icons/qr-code.mjs
@@ -4147,6 +4656,32 @@ body[data-density=compact] .peer-item {
       }
     ],
     ["circle", { cx: "12", cy: "12", r: "3" }]
+  ];
+
+  // node_modules/lucide/dist/esm/icons/sliders-horizontal.mjs
+  var SlidersHorizontal = [
+    ["path", { d: "M10 5H3" }],
+    ["path", { d: "M12 19H3" }],
+    ["path", { d: "M14 3v4" }],
+    ["path", { d: "M16 17v4" }],
+    ["path", { d: "M21 12h-9" }],
+    ["path", { d: "M21 19h-5" }],
+    ["path", { d: "M21 5h-7" }],
+    ["path", { d: "M8 10v4" }],
+    ["path", { d: "M8 12H3" }]
+  ];
+
+  // node_modules/lucide/dist/esm/icons/sparkles.mjs
+  var Sparkles = [
+    [
+      "path",
+      {
+        d: "M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
+      }
+    ],
+    ["path", { d: "M20 2v4" }],
+    ["path", { d: "M22 4h-4" }],
+    ["circle", { cx: "4", cy: "20", r: "2" }]
   ];
 
   // node_modules/lucide/dist/esm/icons/square.mjs
@@ -4262,7 +4797,13 @@ body[data-density=compact] .peer-item {
     Pencil,
     Reply,
     Smile: FaceSlightlySmiling,
-    Eye
+    Eye,
+    SlidersHorizontal,
+    ChevronDown,
+    HelpCircle: CircleQuestionMark,
+    Sparkles,
+    Power,
+    Menu
   };
   function renderLucideIcons(root = document) {
     if (typeof document === "undefined" || !root) return;
@@ -4461,10 +5002,36 @@ body[data-density=compact] .peer-item {
         if (e.target === dialog) resolveDialogModal(false);
       });
     }
+    const settingsModal = document.getElementById("settingsModal");
+    if (settingsModal && !settingsModal.dataset.boundBackdrop) {
+      settingsModal.dataset.boundBackdrop = "1";
+      settingsModal.addEventListener("click", (e) => {
+        if (e.target === settingsModal) closeSettingsModal();
+      });
+    }
+    if (!document.body.dataset.boundOutsideOptions) {
+      document.body.dataset.boundOutsideOptions = "1";
+      document.addEventListener("click", (e) => {
+        const wrap = document.getElementById("optionsMenuWrap");
+        const pop = document.getElementById("optionsPopover");
+        if (pop && pop.classList.contains("open") && wrap && !wrap.contains(e.target)) {
+          closeOptionsMenu();
+        }
+      });
+    }
     if (!document.body.dataset.boundModalEsc) {
       document.body.dataset.boundModalEsc = "1";
       window.addEventListener("keydown", (e) => {
         if (e.key !== "Escape") return;
+        const pop = document.getElementById("optionsPopover");
+        if (pop && pop.classList.contains("open")) {
+          closeOptionsMenu();
+          return;
+        }
+        if (settingsModal && settingsModal.classList.contains("open")) {
+          closeSettingsModal();
+          return;
+        }
         if (lightbox && lightbox.classList.contains("open")) {
           closeImageLightbox();
           return;
@@ -4501,8 +5068,49 @@ body[data-density=compact] .peer-item {
   function toggleSoundboard() {
     const bar = document.getElementById("soundboardBar");
     const btn = document.getElementById("btnSoundboard");
+    if (!bar) return;
     const open = bar.classList.toggle("open");
-    btn.classList.toggle("active-green", open);
+    if (btn) btn.classList.toggle("active-green", open);
+  }
+  function closeOptionsMenu() {
+    const pop = document.getElementById("optionsPopover");
+    const btn = document.getElementById("btnOptionsMenu");
+    if (pop) pop.classList.remove("open");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  }
+  function toggleOptionsMenu(force) {
+    const pop = document.getElementById("optionsPopover");
+    const btn = document.getElementById("btnOptionsMenu");
+    if (!pop) return;
+    const open = typeof force === "boolean" ? force : !pop.classList.contains("open");
+    pop.classList.toggle("open", open);
+    if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  function selectSettingsTab(tab = "appearance") {
+    const validTabs = ["appearance", "network", "guides"];
+    const chosen = validTabs.includes(tab) ? tab : "appearance";
+    document.querySelectorAll("[data-settings-tab]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.settingsTab === chosen);
+    });
+    document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
+      panel.classList.toggle("active", panel.dataset.settingsPanel === chosen);
+    });
+  }
+  function openSettingsModal(tab = "appearance") {
+    closeOptionsMenu();
+    selectSettingsTab(tab);
+    const modal = document.getElementById("settingsModal");
+    if (modal) modal.classList.add("open");
+  }
+  function closeSettingsModal() {
+    const modal = document.getElementById("settingsModal");
+    if (modal) modal.classList.remove("open");
+  }
+  function toggleInfoAccordion(panelId) {
+    if (!panelId) return;
+    const el = document.getElementById(panelId);
+    if (!el) return;
+    el.classList.toggle("open");
   }
   function sendSoundEffect(kind) {
     sendWs({ type: "sound_effect", kind });
@@ -4561,12 +5169,25 @@ body[data-density=compact] .peer-item {
   function registerInviteHooks(h2) {
     hooks = { ...hooks, ...h2 };
   }
+  function toggleNetworkCard(force) {
+    state.networkCardOpen = typeof force === "boolean" ? force : !state.networkCardOpen;
+    const wrap = document.getElementById("networkDetailsWrap");
+    const btn = document.getElementById("btnToggleNetworkCard");
+    if (wrap) wrap.classList.toggle("open", state.networkCardOpen);
+    if (btn) btn.setAttribute("aria-expanded", state.networkCardOpen ? "true" : "false");
+  }
   function applyRoleVisibility() {
     const hostOnly = state.isHost && !state.customServerOrigin;
-    document.getElementById("btnHostTunnel").style.display = hostOnly ? "flex" : "none";
-    document.getElementById("btnRotateKey").style.display = hostOnly ? "inline-flex" : "none";
-    document.getElementById("modeNativeCard").style.display = hostOnly ? "block" : "none";
-    document.getElementById("btnShutdownApp").style.display = hostOnly ? "flex" : "none";
+    const hostTunnelBtn = document.getElementById("btnHostTunnel");
+    if (hostTunnelBtn) hostTunnelBtn.style.display = hostOnly ? "flex" : "none";
+    const rotateBtn = document.getElementById("btnRotateKey");
+    if (rotateBtn) rotateBtn.style.display = hostOnly ? "inline-flex" : "none";
+    const nativeCard = document.getElementById("modeNativeCard");
+    if (nativeCard) nativeCard.style.display = hostOnly ? "block" : "none";
+    const shutdownBtn = document.getElementById("btnShutdownApp");
+    if (shutdownBtn) shutdownBtn.style.display = hostOnly ? "flex" : "none";
+    const shutdownSettingsBtn = document.getElementById("btnShutdownAppSettings");
+    if (shutdownSettingsBtn) shutdownSettingsBtn.style.display = hostOnly ? "inline-flex" : "none";
     const btnClearChat = document.getElementById("btnHostClearChat");
     if (btnClearChat) btnClearChat.style.display = state.isHost ? "inline-flex" : "none";
     const btnUnbanAll = document.getElementById("btnHostUnbanAll");
@@ -4615,17 +5236,22 @@ body[data-density=compact] .peer-item {
   }
   async function startInternetTunnel() {
     const btn = document.getElementById("btnHostTunnel");
-    btn.disabled = true;
-    btn.textContent = "⏳ Abrindo...";
-    document.getElementById("tunnelProviderLabel").textContent = "Iniciando túnel...";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "⏳ Abrindo...";
+    }
+    const lbl = document.getElementById("tunnelProviderLabel");
+    if (lbl) lbl.textContent = "Conectando...";
     try {
       const res = await hostFetch("/api/tunnel/start", { method: "POST" });
       if (!res.ok) throw new Error("HTTP " + res.status);
       pollTunnelUntilReady();
     } catch (err) {
-      btn.disabled = false;
-      btn.textContent = "📡 Gerar Convite";
-      showToast("Erro ao iniciar túnel: " + err.message, "error");
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "📡 Convidar";
+      }
+      showToast("Erro ao iniciar convite pela internet: " + err.message, "error");
     }
   }
   async function stopInternetTunnel() {
@@ -4693,11 +5319,13 @@ body[data-density=compact] .peer-item {
       const res = await hostFetch("/api/tunnel/status");
       if (!res.ok) return false;
       const st2 = await res.json();
-      document.getElementById("tunnelProviderLabel").textContent = st2.provider && st2.provider !== "none" ? st2.provider : "Rede Local";
+      document.getElementById("tunnelProviderLabel").textContent = st2.provider && st2.provider !== "none" ? st2.provider : "Local";
       if (st2.status_message && !st2.active && st2.provider === "error") {
         const btn = document.getElementById("btnHostTunnel");
-        btn.disabled = false;
-        btn.textContent = "📡 Gerar Convite";
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "📡 Convidar";
+        }
         showToast(st2.status_message, "error", 5e3);
       }
       if (st2.active && !st2.public_url && st2.status_message) {
@@ -4723,12 +5351,18 @@ Link: ${st2.invite_link}`;
           stopBtn.style.display = "inline-flex";
         }
         renderInviteQrIntoDom(st2);
+        toggleNetworkCard(true);
         const btn = document.getElementById("btnHostTunnel");
-        btn.disabled = false;
-        btn.textContent = "✅ Sala Online";
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "✅ Online";
+        }
         if (!state.customServerOrigin) {
-          document.getElementById("connectionBadge").textContent = "INTERNET";
-          document.getElementById("connectionBadge").style.background = "var(--green)";
+          const badge = document.getElementById("connectionBadge");
+          if (badge) {
+            badge.textContent = "Online";
+            badge.style.background = "var(--green)";
+          }
         }
         return true;
       }
@@ -4741,11 +5375,14 @@ Link: ${st2.invite_link}`;
         const btn = document.getElementById("btnHostTunnel");
         if (btn) {
           btn.disabled = false;
-          btn.textContent = "📡 Gerar Convite";
+          btn.textContent = "📡 Convidar";
         }
         if (!state.customServerOrigin) {
-          document.getElementById("connectionBadge").textContent = "LOCAL";
-          document.getElementById("connectionBadge").style.background = "var(--brand)";
+          const badge = document.getElementById("connectionBadge");
+          if (badge) {
+            badge.textContent = "Local";
+            badge.style.background = "var(--brand)";
+          }
         }
       }
     } catch (_2) {
@@ -4814,9 +5451,16 @@ Link: ${st2.invite_link}`;
     state.remoteKey = parsed.key;
     applyRoleVisibility();
     closeJoinRemoteModal();
-    document.getElementById("activeServerPill").textContent = `Conectado a: ${parsed.origin}`;
-    document.getElementById("connectionBadge").textContent = "REMOTO";
-    document.getElementById("connectionBadge").style.background = "var(--green)";
+    const pill = document.getElementById("activeServerPill");
+    if (pill) {
+      pill.textContent = `Remoto: ${parsed.origin.replace(/^https?:\/\//i, "")}`;
+      pill.style.display = "inline-flex";
+    }
+    const badge = document.getElementById("connectionBadge");
+    if (badge) {
+      badge.textContent = "Remoto";
+      badge.style.background = "var(--green)";
+    }
     hooks.connectWebSocket();
   }
   function connectToFriendInvite() {
@@ -4833,9 +5477,16 @@ Link: ${st2.invite_link}`;
     state.remoteKey = null;
     applyRoleVisibility();
     closeJoinRemoteModal();
-    document.getElementById("activeServerPill").textContent = "Servidor Local";
-    document.getElementById("connectionBadge").textContent = "LOCAL";
-    document.getElementById("connectionBadge").style.background = "var(--brand)";
+    const pill = document.getElementById("activeServerPill");
+    if (pill) {
+      pill.textContent = "Local";
+      pill.style.display = "none";
+    }
+    const badge = document.getElementById("connectionBadge");
+    if (badge) {
+      badge.textContent = "Local";
+      badge.style.background = "var(--brand)";
+    }
     hooks.connectWebSocket();
   }
 
@@ -5115,11 +5766,11 @@ Link: ${st2.invite_link}`;
     const autoActive = state.voiceEnabled && shouldTransmitVoiceRelay();
     btn.classList.toggle("active-green", state.forceVoiceRelay || autoActive);
     if (state.forceVoiceRelay) {
-      btn.textContent = "🌐 Relay: ON";
+      btn.textContent = "🌐 Rota de Voz: Túnel Forçado";
     } else if (autoActive) {
-      btn.textContent = "🌐 Relay: Auto (Ativo)";
+      btn.textContent = "🌐 Rota de Voz: Automático (Em Túnel)";
     } else {
-      btn.textContent = "🌐 Relay: Auto";
+      btn.textContent = "🌐 Rota de Voz: Automático";
     }
   }
   function toggleForceVoiceRelay() {
@@ -5450,40 +6101,76 @@ Link: ${st2.invite_link}`;
     if (typeof document === "undefined") return;
     const theme = ["dark", "amoled", "light"].includes(state.theme) ? state.theme : "dark";
     const density = state.density === "compact" ? "compact" : "cozy";
+    state.theme = theme;
+    state.density = density;
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.density = density;
+    document.documentElement.style.colorScheme = theme === "light" ? "light" : "dark";
+    if (document.body) {
+      document.body.dataset.theme = theme;
+      document.body.dataset.density = density;
+    }
     const themeLabels = { dark: "Escuro", amoled: "AMOLED", light: "Claro" };
     const btnTheme = document.getElementById("btnThemeToggle");
     if (btnTheme) {
       btnTheme.title = `Tema atual: ${themeLabels[theme]} (clique para alternar)`;
+      btnTheme.textContent = `🎨 Tema: ${themeLabels[theme]}`;
       btnTheme.classList.toggle("active-green", theme !== "dark");
     }
+    document.querySelectorAll("[data-theme-choice]").forEach((el) => {
+      el.classList.toggle("active", el.dataset.themeChoice === theme);
+    });
     const btnDensity = document.getElementById("btnDensityToggle");
     if (btnDensity) {
       btnDensity.title = `Densidade: ${density === "compact" ? "Compacta" : "Confortável"}`;
+      btnDensity.textContent = `↕️ Espaçamento: ${density === "compact" ? "Compacto" : "Confortável"}`;
       btnDensity.classList.toggle("active-green", density === "compact");
     }
+    document.querySelectorAll("[data-density-choice]").forEach((el) => {
+      el.classList.toggle("active", el.dataset.densityChoice === density);
+    });
+    const techCb = document.getElementById("showTechDetailsCheckbox");
+    if (techCb) techCb.checked = Boolean(state.showTechDetails);
   }
-  function toggleTheme() {
-    const order = ["dark", "amoled", "light"];
-    const idx = order.indexOf(state.theme);
-    state.theme = order[(idx + 1) % order.length];
+  function setTheme(nextTheme, notify = true) {
+    const valid = ["dark", "amoled", "light"].includes(nextTheme) ? nextTheme : "dark";
+    state.theme = valid;
     try {
       localStorage.setItem("drocsid_theme", state.theme);
     } catch (_2) {
     }
     applyAppearancePreferences();
-    const labels = { dark: "Escuro Padrão", amoled: "AMOLED Preto Puro", light: "Claro" };
-    showToast(`Tema: ${labels[state.theme]}`, "info", 2e3);
+    if (notify) {
+      const labels = { dark: "Escuro Padrão", amoled: "Preto AMOLED", light: "Claro Suave" };
+      showToast(`Tema: ${labels[state.theme]}`, "info", 1800);
+    }
   }
-  function toggleDensity() {
-    state.density = state.density === "compact" ? "cozy" : "compact";
+  function toggleTheme() {
+    const order = ["dark", "amoled", "light"];
+    const idx = order.indexOf(state.theme);
+    setTheme(order[(idx + 1) % order.length], true);
+  }
+  function setDensity(nextDensity, notify = true) {
+    state.density = nextDensity === "compact" ? "compact" : "cozy";
     try {
       localStorage.setItem("drocsid_density", state.density);
     } catch (_2) {
     }
     applyAppearancePreferences();
-    showToast(`Densidade: ${state.density === "compact" ? "Compacta" : "Confortável"}`, "info", 2e3);
+    if (notify) {
+      showToast(`Espaçamento: ${state.density === "compact" ? "Compacto" : "Confortável"}`, "info", 1800);
+    }
+  }
+  function toggleDensity() {
+    setDensity(state.density === "compact" ? "cozy" : "compact", true);
+  }
+  function toggleShowTechDetails(force) {
+    state.showTechDetails = typeof force === "boolean" ? force : !state.showTechDetails;
+    try {
+      localStorage.setItem("drocsid_show_tech", state.showTechDetails ? "true" : "false");
+    } catch (_2) {
+    }
+    applyAppearancePreferences();
   }
   function renderRooms() {
     const list = document.getElementById("roomList");
@@ -5740,13 +6427,13 @@ Link: ${st2.invite_link}`;
           const ice = pc ? pc.iceConnectionState : "new";
           const inboundRelay = state.voiceRelayInboundPeers.has(peer.peer_id);
           if (!state.forceVoiceRelay && isWebRtcP2pAudioReceiving(peer.peer_id) && !inboundRelay) {
-            badgesHtml += `<span class="status-icon" style="color:var(--green);font-size:10px;font-weight:700;" title="Voz P2P WebRTC conectada diretamente">P2P</span>`;
+            badgesHtml += `<span class="status-icon" style="color:var(--green);font-size:10px;font-weight:700;" title="Voz em conexão direta com menor atraso">Direto</span>`;
           } else if (state.forceVoiceRelay || peer.voice_relay || inboundRelay || state.voiceEnabled && shouldTransmitVoiceRelay()) {
-            badgesHtml += `<span class="status-icon" style="color:#7289da;font-size:10px;font-weight:700;" title="Voz via Relay no túnel WebSocket (anti-CGNAT)">Relay</span>`;
+            badgesHtml += `<span class="status-icon" style="color:var(--brand);font-size:10px;font-weight:700;" title="Voz pelo modo compatível (túnel da sala)">Túnel</span>`;
           } else if (ice === "failed" || ice === "disconnected") {
-            badgesHtml += `<span class="status-icon" style="color:var(--yellow);font-size:10px;font-weight:700;" title="NAT/CGNAT bloqueou UDP direto — alternando para Relay">NAT</span>`;
+            badgesHtml += `<span class="status-icon" style="color:var(--yellow);font-size:10px;font-weight:700;" title="Rede restrita detectada — alternando para o modo compatível">Rede</span>`;
           } else {
-            badgesHtml += `<span class="status-icon" style="color:var(--text-muted);font-size:10px;" title="Conectando rota WebRTC P2P (${escapeHtml(ice)})">...</span>`;
+            badgesHtml += `<span class="status-icon" style="color:var(--text-muted);font-size:10px;" title="Conectando rota de áudio (${escapeHtml(ice)})">...</span>`;
           }
         }
         const curPeerVol = state.peerVolumes.has(peer.peer_id) ? state.peerVolumes.get(peer.peer_id) : 100;
@@ -10013,8 +10700,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
       mBtn.classList.add("active-green");
     }
     if (state.pttEnabled) {
-      const label = state.pttBinding?.defaultCompat ? "V/Espaço" : state.pttBinding?.label || "PTT";
-      btn.textContent = state.pttKeyDown ? "🟢 PTT Falando" : `🟡 PTT (Segure ${label})`;
+      const label = state.pttBinding?.defaultCompat ? "V/Espaço" : state.pttBinding?.label || "Tecla";
+      btn.textContent = state.pttKeyDown ? "🟢 Falando" : `🟡 Segure ${label}`;
     } else {
       btn.textContent = "🟢 Voz Conectada";
     }
@@ -10660,12 +11347,12 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     const btn = document.getElementById("btnMute");
     if (btn) {
       btn.classList.toggle("active-red", effectiveMute);
-      btn.textContent = mutedByHost ? "🔇 Mutado (Host)" : state.selfMute ? "🔇 Mutado" : "🎤 Mutar";
+      btn.textContent = mutedByHost ? "🔇 Mutado (Anfitrião)" : state.selfMute ? "🔇 Mutado" : "🎤 Mutar";
     }
     const mBtn = document.getElementById("mBtnMute");
     if (mBtn) {
       mBtn.classList.toggle("active-red", effectiveMute);
-      mBtn.textContent = effectiveMute ? "🔇 Mudo" : "🎤 Mute";
+      mBtn.textContent = effectiveMute ? "🔇 Mutado" : "🎤 Mutar";
     }
   }
   function syncLocalAudioEnabled() {
@@ -10694,8 +11381,10 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     const stageVideo = document.getElementById("stageVideo");
     stageVideo.muted = state.selfDeaf || state.watchedStreamerId === state.myPeerId;
     const btn = document.getElementById("btnDeaf");
-    btn.classList.toggle("active-red", state.selfDeaf);
-    btn.textContent = state.selfDeaf ? "🙉 Áudio Desativado" : "🎧 Desativar Áudio (Deafen)";
+    if (btn) {
+      btn.classList.toggle("active-red", state.selfDeaf);
+      btn.textContent = state.selfDeaf ? "🙉 Som Desativado" : "🎧 Sem Áudio";
+    }
     sendVoiceState();
   }
   function sendVoiceState() {
@@ -11434,7 +12123,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     const tabsEl = document.getElementById("streamTabs");
     const livePeers = Array.from(state.peers.values()).filter((p) => p.screen_share);
     if (livePeers.length === 0) {
-      tabsEl.innerHTML = `<span style="color: var(--text-muted);">Nenhuma transmissão ativa no momento</span>`;
+      tabsEl.innerHTML = `<span style="color: var(--text-muted);">Nenhuma transmissão ativa</span>`;
       return;
     }
     tabsEl.innerHTML = "";
@@ -11442,7 +12131,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
       const s = p.screen_share;
       const btn = document.createElement("button");
       btn.className = "stream-tab" + (state.watchedStreamerId === p.peer_id ? " active" : "");
-      const modeTag = s.mode === "native_host" ? "🦀 Rust GDI" : s.mode === "universal_relay" ? "🌐 Relay WSS" : "⚡ WebRTC";
+      const modeTag = s.mode === "native_host" ? "🖥️ Captura do PC" : s.mode === "universal_relay" ? "🌐 Túnel" : "⚡ Direto";
       btn.innerHTML = `<span>🔴</span> <strong>${escapeHtml(p.username)}</strong> <span>(${s.width}x${s.height} @ ${s.fps}fps • ${modeTag})</span>`;
       btn.onclick = () => selectWatchedStreamer(p.peer_id);
       tabsEl.appendChild(btn);
@@ -11660,7 +12349,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
       }
       if (selfDescEl) {
         const s = streamer.screen_share;
-        const modeLabel = s.mode === "native_host" ? "Motor Nativo" : s.mode === "universal_relay" ? "Relay WSS" : "WebRTC";
+        const modeLabel = s.mode === "native_host" ? "Captura do PC" : s.mode === "universal_relay" ? "Modo Túnel" : "Conexão direta";
         selfDescEl.textContent = `Transmitindo ${s.width}x${s.height} @ ${s.fps}fps (${modeLabel}). Pré-visualização pausada para evitar espelho infinito, cursor duplicado e distorção verde de cor.`;
       }
       if (selfNoticeEl) selfNoticeEl.style.display = "flex";
@@ -11760,7 +12449,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
         btn.textContent = "📷 Parar Câmera";
         if (mBtn) {
           mBtn.classList.add("active-green");
-          mBtn.textContent = "📷 On";
+          mBtn.textContent = "📷 Ativa";
         }
         renderWebcamStrip();
         await hooks7.renegotiateAllPeers();
@@ -12002,14 +12691,19 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     if (relayExpired || relayTransitioned) hooks7.renderPeers();
     const streamer = state.watchedStreamerId ? state.peers.get(state.watchedStreamerId) : null;
     const hud = document.getElementById("hudStatus");
-    const pingText = typeof state.pingMs === "number" ? ` • Ping: ${state.pingMs} ms` : "";
-    const voiceTag = state.voiceEnabled ? shouldTransmitVoiceRelay() ? " • Voz: Relay WSS" : " • Voz: P2P" : "";
+    if (!hud) return;
+    const pingText = typeof state.pingMs === "number" ? ` • ${state.pingMs} ms` : "";
+    const voiceTag = state.voiceEnabled ? shouldTransmitVoiceRelay() ? " • Voz: Túnel" : " • Voz: Direta" : "";
     if (streamer && streamer.screen_share) {
       const s = streamer.screen_share;
-      const engine = s.mode === "native_host" || s.mode === "universal_relay" ? `${s.mode === "native_host" ? "Rust GDI" : "Relay Internet"} (${state.measuredFps} FPS Acked)` : `WebRTC P2P+TURN (${s.fps} FPS Alvo)`;
-      hud.textContent = `Assistindo ${streamer.username} • ${s.width}x${s.height} • ${engine}${voiceTag}${pingText}`;
+      const engine = s.mode === "native_host" || s.mode === "universal_relay" ? `${s.mode === "native_host" ? "Captura do PC" : "Modo Túnel"} (${state.measuredFps} FPS)` : `Conexão Direta (${s.fps} FPS)`;
+      const fullInfo = `Assistindo ${streamer.username} • ${s.width}x${s.height} • ${engine}${voiceTag}${pingText}`;
+      hud.title = fullInfo;
+      hud.textContent = state.showTechDetails ? fullInfo : `Assistindo ${streamer.username} • ${s.width}x${s.height}${pingText}`;
     } else {
-      hud.textContent = `Sala #${state.currentRoom} • ${state.peers.size} online${voiceTag}${pingText}`;
+      const fullInfo = `#${state.currentRoom} • ${state.peers.size} online${voiceTag}${pingText}`;
+      hud.title = fullInfo;
+      hud.textContent = state.showTechDetails ? fullInfo : `${state.peers.size} online${pingText}`;
     }
   }
 
@@ -12145,6 +12839,23 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
   function closeGoLiveModal() {
     document.getElementById("goLiveModal").classList.remove("open");
   }
+  function toggleEngineHelp(mode, ev) {
+    if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
+    const map = {
+      web_rtc: "modeHelpWebRtc",
+      universal_relay: "modeHelpRelay",
+      native_host: "modeHelpNative"
+    };
+    const targetId = map[mode];
+    if (!targetId) return;
+    const targetEl = document.getElementById(targetId);
+    if (!targetEl) return;
+    const shouldOpen = !targetEl.classList.contains("open");
+    Object.values(map).forEach((id2) => {
+      const el = document.getElementById(id2);
+      if (el) el.classList.toggle("open", id2 === targetId && shouldOpen);
+    });
+  }
   function selectShareMode(mode) {
     state.selectedShareMode = mode;
     document.getElementById("modeWebRtcCard").classList.toggle("selected", mode === "web_rtc");
@@ -12155,7 +12866,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     if (srcGroup) srcGroup.style.display = mode === "native_host" ? "none" : "flex";
     const audioSel = document.getElementById("selectAudioOrQuality");
     if (audioSel && audioSel.options && audioSel.options.length > 0) {
-      audioSel.options[0].textContent = mode === "native_host" ? "Compartilhar Áudio do Sistema (WASAPI)" : "Compartilhar Áudio do Sistema";
+      audioSel.options[0].textContent = "Compartilhar áudio do computador";
     }
     if (mode === "native_host") {
       loadNativeScreenPreviews();
@@ -12163,7 +12874,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
   }
   async function loadNativeScreenPreviews() {
     const grid = document.getElementById("nativePreviewGrid");
-    grid.innerHTML = `<div style="color: var(--text-muted); font-size: 12px;">Consultando GetScreenPreviews no backend Rust...</div>`;
+    grid.innerHTML = `<div style="color: var(--text-muted); font-size: 12px;">Carregando pré-visualizações das telas...</div>`;
     try {
       const res = await hostFetch("/api/screens");
       if (!res.ok) {
@@ -12295,7 +13006,7 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     } else {
       const chosen = state.nativePreviews[state.selectedMonitorIndex] || {
         id: `screen:${state.selectedMonitorIndex}:0`,
-        name: `Tela ${state.selectedMonitorIndex + 1} (Rust GDI)`
+        name: `Tela ${state.selectedMonitorIndex + 1} (Captura do PC)`
       };
       state.myScreenShareMode = "native_host";
       state.localCaptureSurface = "native_host";
@@ -12460,12 +13171,14 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
   }
   function updateGoLiveButtonState(active) {
     const btn = document.getElementById("btnGoLive");
-    btn.classList.toggle("streaming", active);
-    btn.textContent = active ? "⏹️ Parar Compartilhamento" : "🖥️ Compartilhar Tela (Go Live)";
+    if (btn) {
+      btn.classList.toggle("streaming", active);
+      btn.textContent = active ? "⏹️ Parar Transmissão" : "🖥️ Transmitir Tela";
+    }
     const mBtn = document.getElementById("mBtnGoLive");
     if (mBtn) {
       mBtn.classList.toggle("active-red", active);
-      mBtn.textContent = active ? "⏹️ Parar" : "🖥️ Go Live";
+      mBtn.textContent = active ? "⏹️ Parar" : "🖥️ Tela";
     }
   }
   async function fallbackWebRtcToUniversalRelay() {
@@ -12503,7 +13216,10 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     await hooks8.renegotiateAllPeers();
     const capFps = isMobileDevice() ? Math.min(fps, 15) : fps;
     startUniversalRelayCaptureLoop(state.localDisplayStream, width, height, capFps);
-    document.getElementById("hudStatus").textContent = "P2P bloqueado pela rede — alternado automaticamente para Relay!";
+    const hudEl = document.getElementById("hudStatus");
+    if (hudEl) {
+      hudEl.textContent = "Conexão direta bloqueada — alternado para modo compatível";
+    }
     hooks8.updateStageView();
   }
 
@@ -12980,8 +13696,18 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
   });
   Object.assign(window, {
     toggleMobileSidebar,
+    setTheme,
     toggleTheme,
+    setDensity,
     toggleDensity,
+    toggleShowTechDetails,
+    toggleNetworkCard,
+    toggleOptionsMenu,
+    closeOptionsMenu,
+    openSettingsModal,
+    closeSettingsModal,
+    selectSettingsTab,
+    toggleInfoAccordion,
     openTurnModal,
     closeTurnModal,
     saveTurnConfig,
@@ -13035,8 +13761,10 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     closeImageLightbox,
     closeGoLiveModal,
     selectShareMode,
+    toggleEngineHelp,
     loadNativeScreenPreviews,
     confirmStartScreenShare,
+    stopScreenShare,
     selectWatchedStreamer,
     setPeerVolume,
     kickPeer,
@@ -13059,6 +13787,8 @@ lucide/dist/esm/shared/src/utils/hasA11yProp.mjs:
 lucide/dist/esm/shared/src/utils/toCamelCase.mjs:
 lucide/dist/esm/shared/src/utils/toPascalCase.mjs:
 lucide/dist/esm/replaceElement.mjs:
+lucide/dist/esm/icons/chevron-down.mjs:
+lucide/dist/esm/icons/circle-question-mark.mjs:
 lucide/dist/esm/icons/clapperboard.mjs:
 lucide/dist/esm/icons/copy.mjs:
 lucide/dist/esm/icons/crosshair.mjs:
@@ -13069,16 +13799,20 @@ lucide/dist/esm/icons/grid-2x2.mjs:
 lucide/dist/esm/icons/key-round.mjs:
 lucide/dist/esm/icons/link-2.mjs:
 lucide/dist/esm/icons/maximize.mjs:
+lucide/dist/esm/icons/menu.mjs:
 lucide/dist/esm/icons/paperclip.mjs:
 lucide/dist/esm/icons/pencil.mjs:
 lucide/dist/esm/icons/picture-in-picture-2.mjs:
 lucide/dist/esm/icons/pin.mjs:
+lucide/dist/esm/icons/power.mjs:
 lucide/dist/esm/icons/qr-code.mjs:
 lucide/dist/esm/icons/radio.mjs:
 lucide/dist/esm/icons/reply.mjs:
 lucide/dist/esm/icons/rows-3.mjs:
 lucide/dist/esm/icons/send.mjs:
 lucide/dist/esm/icons/settings.mjs:
+lucide/dist/esm/icons/sliders-horizontal.mjs:
+lucide/dist/esm/icons/sparkles.mjs:
 lucide/dist/esm/icons/square.mjs:
 lucide/dist/esm/icons/sun-moon.mjs:
 lucide/dist/esm/icons/trash.mjs:

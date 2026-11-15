@@ -419,7 +419,7 @@ export function renderStreamTabs() {
   const livePeers = Array.from(state.peers.values()).filter(p => p.screen_share);
 
   if (livePeers.length === 0) {
-    tabsEl.innerHTML = `<span style="color: var(--text-muted);">Nenhuma transmissão ativa no momento</span>`;
+    tabsEl.innerHTML = `<span style="color: var(--text-muted);">Nenhuma transmissão ativa</span>`;
     return;
   }
 
@@ -429,8 +429,8 @@ export function renderStreamTabs() {
     const btn = document.createElement("button");
     btn.className = "stream-tab" + (state.watchedStreamerId === p.peer_id ? " active" : "");
     const modeTag = s.mode === "native_host"
-      ? "🦀 Rust GDI"
-      : (s.mode === "universal_relay" ? "🌐 Relay WSS" : "⚡ WebRTC");
+      ? "🖥️ Captura do PC"
+      : (s.mode === "universal_relay" ? "🌐 Túnel" : "⚡ Direto");
     btn.innerHTML = `<span>🔴</span> <strong>${escapeHtml(p.username)}</strong> <span>(${s.width}x${s.height} @ ${s.fps}fps • ${modeTag})</span>`;
     btn.onclick = () => selectWatchedStreamer(p.peer_id);
     tabsEl.appendChild(btn);
@@ -665,8 +665,8 @@ export function updateStageView() {
     if (selfDescEl) {
       const s = streamer.screen_share;
       const modeLabel = s.mode === "native_host"
-        ? "Motor Nativo"
-        : (s.mode === "universal_relay" ? "Relay WSS" : "WebRTC");
+        ? "Captura do PC"
+        : (s.mode === "universal_relay" ? "Modo Túnel" : "Conexão direta");
       selfDescEl.textContent =
         `Transmitindo ${s.width}x${s.height} @ ${s.fps}fps (${modeLabel}). ` +
         "Pré-visualização pausada para evitar espelho infinito, cursor duplicado e distorção verde de cor.";
@@ -777,7 +777,7 @@ export async function toggleWebcam() {
       btn.textContent = "📷 Parar Câmera";
       if (mBtn) {
         mBtn.classList.add("active-green");
-        mBtn.textContent = "📷 On";
+        mBtn.textContent = "📷 Ativa";
       }
       renderWebcamStrip();
       await hooks.renegotiateAllPeers();
@@ -1020,17 +1020,26 @@ export function updateTelemetryHud() {
 
   const streamer = state.watchedStreamerId ? state.peers.get(state.watchedStreamerId) : null;
   const hud = document.getElementById("hudStatus");
-  const pingText = typeof state.pingMs === "number" ? ` • Ping: ${state.pingMs} ms` : "";
+  if (!hud) return;
+  const pingText = typeof state.pingMs === "number" ? ` • ${state.pingMs} ms` : "";
   const voiceTag = state.voiceEnabled
-    ? (shouldTransmitVoiceRelay() ? " • Voz: Relay WSS" : " • Voz: P2P")
+    ? (shouldTransmitVoiceRelay() ? " • Voz: Túnel" : " • Voz: Direta")
     : "";
   if (streamer && streamer.screen_share) {
     const s = streamer.screen_share;
     const engine = (s.mode === "native_host" || s.mode === "universal_relay")
-      ? `${s.mode === "native_host" ? "Rust GDI" : "Relay Internet"} (${state.measuredFps} FPS Acked)`
-      : `WebRTC P2P+TURN (${s.fps} FPS Alvo)`;
-    hud.textContent = `Assistindo ${streamer.username} • ${s.width}x${s.height} • ${engine}${voiceTag}${pingText}`;
+      ? `${s.mode === "native_host" ? "Captura do PC" : "Modo Túnel"} (${state.measuredFps} FPS)`
+      : `Conexão Direta (${s.fps} FPS)`;
+    const fullInfo = `Assistindo ${streamer.username} • ${s.width}x${s.height} • ${engine}${voiceTag}${pingText}`;
+    hud.title = fullInfo;
+    hud.textContent = state.showTechDetails
+      ? fullInfo
+      : `Assistindo ${streamer.username} • ${s.width}x${s.height}${pingText}`;
   } else {
-    hud.textContent = `Sala #${state.currentRoom} • ${state.peers.size} online${voiceTag}${pingText}`;
+    const fullInfo = `#${state.currentRoom} • ${state.peers.size} online${voiceTag}${pingText}`;
+    hud.title = fullInfo;
+    hud.textContent = state.showTechDetails
+      ? fullInfo
+      : `${state.peers.size} online${pingText}`;
   }
 }

@@ -15,12 +15,26 @@ export function registerInviteHooks(h) {
   hooks = { ...hooks, ...h };
 }
 
+export function toggleNetworkCard(force) {
+  state.networkCardOpen = typeof force === "boolean" ? force : !state.networkCardOpen;
+  const wrap = document.getElementById("networkDetailsWrap");
+  const btn = document.getElementById("btnToggleNetworkCard");
+  if (wrap) wrap.classList.toggle("open", state.networkCardOpen);
+  if (btn) btn.setAttribute("aria-expanded", state.networkCardOpen ? "true" : "false");
+}
+
 export function applyRoleVisibility() {
   const hostOnly = state.isHost && !state.customServerOrigin;
-  document.getElementById("btnHostTunnel").style.display = hostOnly ? "flex" : "none";
-  document.getElementById("btnRotateKey").style.display = hostOnly ? "inline-flex" : "none";
-  document.getElementById("modeNativeCard").style.display = hostOnly ? "block" : "none";
-  document.getElementById("btnShutdownApp").style.display = hostOnly ? "flex" : "none";
+  const hostTunnelBtn = document.getElementById("btnHostTunnel");
+  if (hostTunnelBtn) hostTunnelBtn.style.display = hostOnly ? "flex" : "none";
+  const rotateBtn = document.getElementById("btnRotateKey");
+  if (rotateBtn) rotateBtn.style.display = hostOnly ? "inline-flex" : "none";
+  const nativeCard = document.getElementById("modeNativeCard");
+  if (nativeCard) nativeCard.style.display = hostOnly ? "block" : "none";
+  const shutdownBtn = document.getElementById("btnShutdownApp");
+  if (shutdownBtn) shutdownBtn.style.display = hostOnly ? "flex" : "none";
+  const shutdownSettingsBtn = document.getElementById("btnShutdownAppSettings");
+  if (shutdownSettingsBtn) shutdownSettingsBtn.style.display = hostOnly ? "inline-flex" : "none";
   const btnClearChat = document.getElementById("btnHostClearChat");
   if (btnClearChat) btnClearChat.style.display = state.isHost ? "inline-flex" : "none";
   const btnUnbanAll = document.getElementById("btnHostUnbanAll");
@@ -71,18 +85,23 @@ export async function shutdownHostApp() {
 
 export async function startInternetTunnel() {
   const btn = document.getElementById("btnHostTunnel");
-  btn.disabled = true;
-  btn.textContent = "⏳ Abrindo...";
-  document.getElementById("tunnelProviderLabel").textContent = "Iniciando túnel...";
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Abrindo...";
+  }
+  const lbl = document.getElementById("tunnelProviderLabel");
+  if (lbl) lbl.textContent = "Conectando...";
 
   try {
     const res = await hostFetch("/api/tunnel/start", { method: "POST" });
     if (!res.ok) throw new Error("HTTP " + res.status);
     pollTunnelUntilReady();
   } catch (err) {
-    btn.disabled = false;
-    btn.textContent = "📡 Gerar Convite";
-    showToast("Erro ao iniciar túnel: " + err.message, "error");
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "📡 Convidar";
+    }
+    showToast("Erro ao iniciar convite pela internet: " + err.message, "error");
   }
 }
 
@@ -155,11 +174,13 @@ export async function checkTunnelStatus() {
     if (!res.ok) return false;
     const st = await res.json();
     document.getElementById("tunnelProviderLabel").textContent =
-      st.provider && st.provider !== "none" ? st.provider : "Rede Local";
+      st.provider && st.provider !== "none" ? st.provider : "Local";
     if (st.status_message && !st.active && st.provider === "error") {
       const btn = document.getElementById("btnHostTunnel");
-      btn.disabled = false;
-      btn.textContent = "📡 Gerar Convite";
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "📡 Convidar";
+      }
       showToast(st.status_message, "error", 5000);
     }
     if (st.active && !st.public_url && st.status_message) {
@@ -186,13 +207,19 @@ export async function checkTunnelStatus() {
         stopBtn.style.display = "inline-flex";
       }
       renderInviteQrIntoDom(st);
+      toggleNetworkCard(true);
 
       const btn = document.getElementById("btnHostTunnel");
-      btn.disabled = false;
-      btn.textContent = "✅ Sala Online";
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "✅ Online";
+      }
       if (!state.customServerOrigin) {
-        document.getElementById("connectionBadge").textContent = "INTERNET";
-        document.getElementById("connectionBadge").style.background = "var(--green)";
+        const badge = document.getElementById("connectionBadge");
+        if (badge) {
+          badge.textContent = "Online";
+          badge.style.background = "var(--green)";
+        }
       }
       return true;
     }
@@ -206,11 +233,14 @@ export async function checkTunnelStatus() {
       const btn = document.getElementById("btnHostTunnel");
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "📡 Gerar Convite";
+        btn.textContent = "📡 Convidar";
       }
       if (!state.customServerOrigin) {
-        document.getElementById("connectionBadge").textContent = "LOCAL";
-        document.getElementById("connectionBadge").style.background = "var(--brand)";
+        const badge = document.getElementById("connectionBadge");
+        if (badge) {
+          badge.textContent = "Local";
+          badge.style.background = "var(--brand)";
+        }
       }
     }
   } catch (_) {}
@@ -284,9 +314,16 @@ export function applyRemoteInvite(parsed) {
   state.remoteKey = parsed.key;
   applyRoleVisibility();
   closeJoinRemoteModal();
-  document.getElementById("activeServerPill").textContent = `Conectado a: ${parsed.origin}`;
-  document.getElementById("connectionBadge").textContent = "REMOTO";
-  document.getElementById("connectionBadge").style.background = "var(--green)";
+  const pill = document.getElementById("activeServerPill");
+  if (pill) {
+    pill.textContent = `Remoto: ${parsed.origin.replace(/^https?:\/\//i, "")}`;
+    pill.style.display = "inline-flex";
+  }
+  const badge = document.getElementById("connectionBadge");
+  if (badge) {
+    badge.textContent = "Remoto";
+    badge.style.background = "var(--green)";
+  }
   hooks.connectWebSocket();
 }
 
@@ -305,8 +342,15 @@ export function resetToLocalServer() {
   state.remoteKey = null;
   applyRoleVisibility();
   closeJoinRemoteModal();
-  document.getElementById("activeServerPill").textContent = "Servidor Local";
-  document.getElementById("connectionBadge").textContent = "LOCAL";
-  document.getElementById("connectionBadge").style.background = "var(--brand)";
+  const pill = document.getElementById("activeServerPill");
+  if (pill) {
+    pill.textContent = "Local";
+    pill.style.display = "none";
+  }
+  const badge = document.getElementById("connectionBadge");
+  if (badge) {
+    badge.textContent = "Local";
+    badge.style.background = "var(--brand)";
+  }
   hooks.connectWebSocket();
 }

@@ -152,6 +152,24 @@ export function closeGoLiveModal() {
   document.getElementById("goLiveModal").classList.remove("open");
 }
 
+export function toggleEngineHelp(mode, ev) {
+  if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
+  const map = {
+    web_rtc: "modeHelpWebRtc",
+    universal_relay: "modeHelpRelay",
+    native_host: "modeHelpNative",
+  };
+  const targetId = map[mode];
+  if (!targetId) return;
+  const targetEl = document.getElementById(targetId);
+  if (!targetEl) return;
+  const shouldOpen = !targetEl.classList.contains("open");
+  Object.values(map).forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("open", id === targetId && shouldOpen);
+  });
+}
+
 export function selectShareMode(mode) {
   state.selectedShareMode = mode;
   document.getElementById("modeWebRtcCard").classList.toggle("selected", mode === "web_rtc");
@@ -162,10 +180,7 @@ export function selectShareMode(mode) {
   if (srcGroup) srcGroup.style.display = mode === "native_host" ? "none" : "flex";
   const audioSel = document.getElementById("selectAudioOrQuality");
   if (audioSel && audioSel.options && audioSel.options.length > 0) {
-    audioSel.options[0].textContent =
-      mode === "native_host"
-        ? "Compartilhar Áudio do Sistema (WASAPI)"
-        : "Compartilhar Áudio do Sistema";
+    audioSel.options[0].textContent = "Compartilhar áudio do computador";
   }
   if (mode === "native_host") {
     loadNativeScreenPreviews();
@@ -174,7 +189,7 @@ export function selectShareMode(mode) {
 
 export async function loadNativeScreenPreviews() {
   const grid = document.getElementById("nativePreviewGrid");
-  grid.innerHTML = `<div style="color: var(--text-muted); font-size: 12px;">Consultando GetScreenPreviews no backend Rust...</div>`;
+  grid.innerHTML = `<div style="color: var(--text-muted); font-size: 12px;">Carregando pré-visualizações das telas...</div>`;
   try {
     const res = await hostFetch("/api/screens");
     if (!res.ok) {
@@ -323,7 +338,7 @@ export async function confirmStartScreenShare() {
   } else {
     const chosen = state.nativePreviews[state.selectedMonitorIndex] || {
       id: `screen:${state.selectedMonitorIndex}:0`,
-      name: `Tela ${state.selectedMonitorIndex + 1} (Rust GDI)`
+      name: `Tela ${state.selectedMonitorIndex + 1} (Captura do PC)`
     };
 
     state.myScreenShareMode = "native_host";
@@ -489,12 +504,14 @@ export async function stopScreenShare() {
 
 export function updateGoLiveButtonState(active) {
   const btn = document.getElementById("btnGoLive");
-  btn.classList.toggle("streaming", active);
-  btn.textContent = active ? "⏹️ Parar Compartilhamento" : "🖥️ Compartilhar Tela (Go Live)";
+  if (btn) {
+    btn.classList.toggle("streaming", active);
+    btn.textContent = active ? "⏹️ Parar Transmissão" : "🖥️ Transmitir Tela";
+  }
   const mBtn = document.getElementById("mBtnGoLive");
   if (mBtn) {
     mBtn.classList.toggle("active-red", active);
-    mBtn.textContent = active ? "⏹️ Parar" : "🖥️ Go Live";
+    mBtn.textContent = active ? "⏹️ Parar" : "🖥️ Tela";
   }
 }
 
@@ -532,7 +549,9 @@ export async function fallbackWebRtcToUniversalRelay() {
   await hooks.renegotiateAllPeers();
   const capFps = isMobileDevice() ? Math.min(fps, 15) : fps;
   startUniversalRelayCaptureLoop(state.localDisplayStream, width, height, capFps);
-  document.getElementById("hudStatus").textContent =
-    "P2P bloqueado pela rede — alternado automaticamente para Relay!";
+  const hudEl = document.getElementById("hudStatus");
+  if (hudEl) {
+    hudEl.textContent = "Conexão direta bloqueada — alternado para modo compatível";
+  }
   hooks.updateStageView();
 }

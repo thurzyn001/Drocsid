@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Drocsid — Chat, Voz & Go Live (Internet & P2P)</title>
+  <title>Drocsid</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%235865F2'/><text x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Segoe UI,sans-serif' font-weight='bold'>D</text></svg>" />
   <style>
 /* __DROCSID_INLINE_CSS__ */
@@ -14,87 +14,115 @@
   <!-- Barra Lateral -->
   <aside id="sidebar" class="sidebar">
     <div class="server-header">
-      <span>Drocsid</span>
-      <span style="display:flex;align-items:center;gap:5px;">
-        <button id="btnThemeToggle" class="btn icon-btn" onclick="toggleTheme()" title="Alternar tema (Escuro / AMOLED / Claro)">
-          <i data-lucide="sun-moon"></i>
+      <span class="brand-wordmark">Drocsid</span>
+      <span style="display:flex;align-items:center;gap:6px;">
+        <span class="server-badge" id="connectionBadge">Local</span>
+        <button class="btn icon-btn soft-icon-btn" onclick="openSettingsModal('appearance')" title="Configurações">
+          <i data-lucide="settings"></i>
         </button>
-        <button id="btnDensityToggle" class="btn icon-btn" onclick="toggleDensity()" title="Alternar densidade (Confortável / Compacto)">
-          <i data-lucide="rows-3"></i>
-        </button>
-        <span class="server-badge" id="connectionBadge">LOCAL</span>
         <button class="btn sidebar-close-btn" style="padding: 3px 8px;" onclick="toggleMobileSidebar(false)" title="Fechar menu">
           <i data-lucide="x"></i>
         </button>
       </span>
     </div>
 
-    <!-- Cartão de Conexão na Internet (Jogar fora da mesma rede sem VPN) -->
+    <!-- Cartão Compacto de Convite e Conexão -->
     <div class="network-card">
       <div class="network-card-title">
-        <span style="display:flex;align-items:center;gap:5px;"><i data-lucide="globe"></i> Conexão na Internet</span>
+        <span style="display:flex;align-items:center;gap:6px;"><i data-lucide="globe"></i> Convites</span>
         <span style="display:flex;align-items:center;gap:6px;">
-          <span id="tunnelProviderLabel" style="font-size: 10px; color: var(--text-muted);">Pronto</span>
-          <button class="btn icon-btn" style="padding:2px 5px;font-size:10px;" onclick="openTurnModal()" title="Configurar servidor TURN opcional para redes com bloqueio P2P">
-            <i data-lucide="settings"></i>
+          <span id="tunnelProviderLabel" class="network-status-pill">Local</span>
+          <button id="btnToggleNetworkCard" type="button" class="btn icon-btn soft-icon-btn" onclick="toggleNetworkCard()" aria-expanded="false" title="Expandir ou recolher opções de convite">
+            <i data-lucide="chevron-down"></i>
           </button>
         </span>
       </div>
-      <div id="inviteCodeBox" class="invite-box"></div>
-      <div id="inviteQrWrap" class="invite-qr-wrap" style="display: none;"></div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
-        <button id="btnHostTunnel" class="btn" style="background: var(--brand);" onclick="startInternetTunnel()" title="Cria um link/código público gratuito para seus amigos entrarem de qualquer rede">
-          <i data-lucide="radio"></i> <span>Gerar Convite</span>
+      <div class="network-quick-actions">
+        <button id="btnHostTunnel" class="btn" style="background: var(--brand); color: #fff;" onclick="startInternetTunnel()" title="Gerar link e código de convite para amigos em outras redes">
+          <i data-lucide="radio"></i> <span>Convidar</span>
         </button>
-        <button class="btn" onclick="openJoinRemoteModal()" title="Entrar na sala de um amigo usando o código ou link dele">
-          <i data-lucide="link-2"></i> <span>Usar Código</span>
+        <button class="btn soft-btn" onclick="openJoinRemoteModal()" title="Entrar na sala de um amigo com código ou link">
+          <i data-lucide="link-2"></i> <span>Entrar</span>
         </button>
       </div>
-      <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-        <button id="btnCopyInvite" class="btn active-green" style="display: none; flex: 1;" onclick="copyInviteToClipboard()">
-          <i data-lucide="copy"></i> <span>Copiar</span>
-        </button>
-        <button id="btnToggleQr" class="btn" style="display: none; padding: 6px 8px;" onclick="toggleInviteQr()" title="Exibir ou ocultar QR Code para celular">
-          <i data-lucide="qr-code"></i>
-        </button>
-        <button id="btnRotateKey" class="btn" style="display: none; padding: 6px 8px;" onclick="rotateRoomKey()" title="Gerar nova chave da sala e invalidar convites anteriores">
-          <i data-lucide="key-round"></i>
-        </button>
-        <button id="btnStopTunnel" class="btn" style="display: none; padding: 6px 8px; background: var(--red-hover);" onclick="stopInternetTunnel()" title="Parar túnel público da Internet">
-          <i data-lucide="square"></i>
-        </button>
+      <div id="networkDetailsWrap" class="network-details-wrap">
+        <div id="inviteCodeBox" class="invite-box"></div>
+        <div id="inviteQrWrap" class="invite-qr-wrap" style="display: none;"></div>
+        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+          <button id="btnCopyInvite" class="btn active-green" style="display: none; flex: 1;" onclick="copyInviteToClipboard()">
+            <i data-lucide="copy"></i> <span>Copiar</span>
+          </button>
+          <button id="btnToggleQr" class="btn soft-btn" style="display: none; padding: 6px 8px;" onclick="toggleInviteQr()" title="Exibir ou ocultar QR Code">
+            <i data-lucide="qr-code"></i>
+          </button>
+          <button id="btnRotateKey" class="btn soft-btn" style="display: none; padding: 6px 8px;" onclick="rotateRoomKey()" title="Gerar nova chave da sala e invalidar convites antigos">
+            <i data-lucide="key-round"></i>
+          </button>
+          <button id="btnStopTunnel" class="btn" style="display: none; padding: 6px 8px; background: var(--red-hover); color: #fff;" onclick="stopInternetTunnel()" title="Encerrar convite público">
+            <i data-lucide="square"></i>
+          </button>
+        </div>
+        <button type="button" class="soft-link-btn" onclick="openTurnModal()">Configurações avançadas de rede (TURN)</button>
       </div>
     </div>
 
     <div class="sidebar-content">
       <div class="section-title">
-        <span>Salas (Voz + Tela + Chat)</span>
-        <button class="btn" style="padding: 2px 6px; font-size: 11px;" onclick="promptNewRoom()" title="Criar ou entrar em outra sala">+</button>
+        <span>Salas</span>
+        <button class="btn soft-btn" style="padding: 2px 7px; font-size: 12px;" onclick="promptNewRoom()" title="Criar ou entrar em outra sala">+</button>
       </div>
       <div id="roomList"></div>
 
       <div class="section-title" style="margin-top: 14px;">
         <span>Na Sala (<span id="peerCount">0</span>)</span>
-        <button id="btnHostUnbanAll" type="button" class="btn" style="display: none; padding: 2px 6px; font-size: 11px;" onclick="unbanAllPeers()" title="Remover todos os banimentos desta sessão">🔓 Banidos</button>
+        <button id="btnHostUnbanAll" type="button" class="btn soft-btn" style="display: none; padding: 2px 6px; font-size: 11px;" onclick="unbanAllPeers()" title="Remover todos os banimentos desta sessão">🔓 Banidos</button>
       </div>
       <div id="peerList" class="peer-list"></div>
     </div>
 
-    <!-- Controles de Usuário, Voz e Compartilhamento de Tela -->
+    <!-- Controles Essenciais de Chamada + Menu de Opções -->
     <div class="user-panel">
       <div class="user-row">
-        <input id="usernameInput" class="username-input" type="text" placeholder="Seu apelido..." onchange="updateProfile()" />
+        <input id="usernameInput" class="username-input" type="text" placeholder="Seu nome..." onchange="updateProfile()" />
       </div>
       <div class="control-grid">
         <button id="btnVoice" class="btn" onclick="toggleVoiceConnection()">🎙️ Entrar na Voz</button>
         <button id="btnMute" class="btn" onclick="toggleMute()">🎤 Mutar</button>
-        <button id="btnDeaf" class="btn" style="grid-column: span 2;" onclick="toggleDeaf()">🎧 Desativar Áudio (Deafen)</button>
-        <button id="btnGoLive" class="btn btn-golive" onclick="handleGoLiveButton()">🖥️ Compartilhar Tela (Go Live)</button>
+        <button id="btnDeaf" class="btn" onclick="toggleDeaf()" title="Silenciar todo o áudio recebido e o microfone (Ctrl+D)">🎧 Sem Áudio</button>
         <button id="btnWebcam" class="btn" onclick="toggleWebcam()">📷 Câmera</button>
-        <button id="btnSoundboard" class="btn" onclick="toggleSoundboard()">🔊 Efeitos</button>
-        <button id="btnAudioSettings" class="btn" onclick="openAudioSettingsModal()">🎛️ Áudio / PTT</button>
-        <button id="btnVoiceRelay" class="btn" onclick="toggleForceVoiceRelay()" title="Forçar transmissão da voz pelo túnel WebSocket (anti-CGNAT)">🌐 Relay: Auto</button>
-        <button id="btnShutdownApp" class="btn" style="grid-column: span 2; display: none; background: #2b2d31; border: 1px solid var(--border); color: var(--text-muted);" onclick="shutdownHostApp()" title="Encerra o servidor local e o túnel em segundo plano">⏻ Encerrar App</button>
+        <button id="btnGoLive" class="btn btn-golive" onclick="handleGoLiveButton()">🖥️ Transmitir Tela</button>
+      </div>
+      <div class="user-footer-actions">
+        <div id="optionsMenuWrap" class="options-menu-wrap">
+          <button id="btnOptionsMenu" type="button" class="btn soft-btn" style="width: 100%; justify-content: space-between;" onclick="toggleOptionsMenu()" aria-expanded="false">
+            <span style="display:flex;align-items:center;gap:6px;"><i data-lucide="sliders-horizontal"></i> Opções e Ajustes</span>
+            <i data-lucide="chevron-down"></i>
+          </button>
+          <div id="optionsPopover" class="options-popover" role="menu">
+            <button type="button" class="options-item" onclick="closeOptionsMenu(); openAudioSettingsModal()">
+              <span>🎛️</span><span>Áudio, Microfone e Tecla PTT</span>
+            </button>
+            <button type="button" class="options-item" onclick="openSettingsModal('appearance')">
+              <span>🎨</span><span>Aparência e Temas</span>
+            </button>
+            <button type="button" class="options-item" onclick="openSettingsModal('network')">
+              <span>🌐</span><span>Rede e Conexão</span>
+            </button>
+            <button type="button" class="options-item" onclick="openSettingsModal('guides')">
+              <span>💡</span><span>Como funcionam os motores</span>
+            </button>
+            <button type="button" class="options-item" onclick="closeOptionsMenu(); toggleSoundboard()">
+              <span>✨</span><span>Efeitos sonoros no chat</span>
+            </button>
+            <button type="button" class="options-item" onclick="closeOptionsMenu(); openJoinRemoteModal()">
+              <span>🔗</span><span>Entrar com código de amigo</span>
+            </button>
+            <div class="options-divider"></div>
+            <button id="btnShutdownApp" type="button" class="options-item danger" style="display: none;" onclick="closeOptionsMenu(); shutdownHostApp()">
+              <span>⏻</span><span>Encerrar aplicativo</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </aside>
@@ -103,39 +131,39 @@
   <main id="mainArea" class="main-area">
     <header class="topbar">
       <div class="topbar-left">
-        <button class="btn mobile-menu-btn" style="padding: 5px 9px;" onclick="toggleMobileSidebar(true)">☰ Salas</button>
+        <button class="btn mobile-menu-btn soft-btn" style="padding: 5px 9px;" onclick="toggleMobileSidebar(true)">☰ Salas</button>
         <span class="room-title" id="currentRoomLabel">#geral</span>
-        <span class="engine-pill" id="activeServerPill">Servidor Local</span>
+        <span class="engine-pill" id="activeServerPill" style="display: none;">Local</span>
         <span class="version-mismatch-pill" id="versionMismatchBadge" style="display: none;"></span>
       </div>
       <div class="telemetry-hud" id="telemetryHud">
         <div class="view-switcher">
-          <button id="btnViewSplit" class="btn active-view" style="padding: 3px 7px; font-size: 11px;" onclick="setLayoutViewMode('split')" title="Mostrar Palco e Chat">📐 Dividido</button>
-          <button id="btnViewStage" class="btn" style="padding: 3px 7px; font-size: 11px;" onclick="setLayoutViewMode('stage')" title="Focar apenas no Vídeo">🎬 Palco</button>
-          <button id="btnViewChat" class="btn" style="padding: 3px 7px; font-size: 11px;" onclick="setLayoutViewMode('chat')" title="Focar apenas no Chat">💬 Chat</button>
+          <button id="btnViewSplit" class="btn active-view" style="padding: 3px 8px; font-size: 11px;" onclick="setLayoutViewMode('split')" title="Mostrar Palco e Chat">Dividido</button>
+          <button id="btnViewStage" class="btn" style="padding: 3px 8px; font-size: 11px;" onclick="setLayoutViewMode('stage')" title="Focar apenas no Vídeo">Palco</button>
+          <button id="btnViewChat" class="btn" style="padding: 3px 8px; font-size: 11px;" onclick="setLayoutViewMode('chat')" title="Focar apenas no Chat">Chat</button>
         </div>
-        <span id="hudStatus">Pronto</span>
+        <span id="hudStatus" class="hud-status-pill">Pronto</span>
       </div>
     </header>
 
     <button id="btnUnlockAudio" class="unlock-audio-banner" style="display: none;" onclick="unlockBrowserAudio()">🔇 Som bloqueado pelo navegador — Toque aqui para ativar o áudio</button>
 
-    <!-- Palco de Compartilhamento de Tela (Stage) -->
+    <!-- Palco de Transmissão (Stage) -->
     <section class="stage-container" id="stageContainer">
       <div class="stage-header">
         <div class="stage-tabs" id="streamTabs">
-          <span style="color: var(--text-muted);">Nenhuma transmissão ativa no momento</span>
+          <span style="color: var(--text-muted);">Nenhuma transmissão ativa</span>
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted);" title="Volume do Palco (Go Live / Vídeo)">
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted);" title="Volume da transmissão no palco">
             <i data-lucide="volume-2"></i>
             <input id="stageVolumeSlider" type="range" min="0" max="100" value="100" style="width: 68px; accent-color: var(--brand); cursor: pointer;" oninput="setStageVolume(this.value)" />
           </label>
           <button id="btnStageSelfPreview" class="btn" style="display: none; padding: 4px 8px;" onclick="setSelfPreviewEnabled()" title="Alternar pré-visualização da própria transmissão (evita espelho infinito e tela verde)"><i data-lucide="eye"></i> <span id="btnStageSelfPreviewLabel">Prévia</span></button>
-          <button id="btnGridMode" class="btn" style="padding: 4px 8px;" onclick="toggleGridMode()" title="Grade Multi-Stream (até 4 telas)"><i data-lucide="grid-2x2"></i> Grade</button>
-          <button id="btnLaserMode" class="btn" style="padding: 4px 8px;" onclick="toggleLaserMode()" title="Ponteiro Laser compartilhado no vídeo"><i data-lucide="crosshair"></i> Laser</button>
-          <button id="btnTheaterMode" class="btn" style="padding: 4px 8px;" onclick="toggleTheaterMode()" title="Recolher chat (Modo Teatro)"><i data-lucide="clapperboard"></i> Teatro</button>
-          <button id="btnPiP" class="btn" style="padding: 4px 8px;" onclick="togglePiP()" title="Picture-in-Picture (Modos 1, 2 e 3)"><i data-lucide="picture-in-picture-2"></i> PiP</button>
+          <button id="btnGridMode" class="btn" style="padding: 4px 8px;" onclick="toggleGridMode()" title="Grade para até 4 telas"><i data-lucide="grid-2x2"></i> Grade</button>
+          <button id="btnLaserMode" class="btn" style="padding: 4px 8px;" onclick="toggleLaserMode()" title="Apontador laser na tela"><i data-lucide="crosshair"></i> Laser</button>
+          <button id="btnTheaterMode" class="btn" style="padding: 4px 8px;" onclick="toggleTheaterMode()" title="Expandir vídeo"><i data-lucide="clapperboard"></i> Teatro</button>
+          <button id="btnPiP" class="btn" style="padding: 4px 8px;" onclick="togglePiP()" title="Janela flutuante"><i data-lucide="picture-in-picture-2"></i> Flutuante</button>
           <button class="btn" style="padding: 4px 8px;" onclick="toggleStageFullscreen()"><i data-lucide="maximize"></i> Tela Cheia</button>
         </div>
       </div>
@@ -151,18 +179,17 @@
           <span class="stage-self-preview-badge">AO VIVO</span>
           <h3>Você está transmitindo sua tela</h3>
           <p id="stageSelfPreviewDesc">
-            A pré-visualização ao vivo foi pausada para evitar espelho infinito, cursor duplicado e distorção verde de cor ao capturar a própria tela.
+            Pré-visualização pausada para evitar espelho infinito, cursor duplicado e distorção verde de cor.
           </p>
           <div class="stage-self-preview-actions">
             <button type="button" class="btn" id="btnToggleSelfPreview" onclick="setSelfPreviewEnabled(true)"><i data-lucide="eye"></i> Mostrar Pré-visualização</button>
-            <button type="button" class="btn btn-danger" onclick="stopScreenShare()"><i data-lucide="square"></i> Parar Compartilhamento</button>
+            <button type="button" class="btn btn-danger" onclick="stopScreenShare()"><i data-lucide="square"></i> Parar Transmissão</button>
           </div>
         </div>
         <div class="stage-empty" id="stageEmpty">
-          <h3>Compartilhamento de Tela ("Go Live") — Local & Internet</h3>
+          <h3>Pronto para conversar e compartilhar</h3>
           <p>
-            • Para chamar amigos de <strong>outras redes/cidades sem VPN</strong>, clique em <strong>📡 Gerar Convite</strong> na barra esquerda e envie o código gerado.<br/>
-            • Clique em <strong>🖥️ Compartilhar Tela (Go Live)</strong> para transmitir sua tela, janela ou câmera!
+            Entre na voz, mande mensagens ou clique em <strong>Transmitir Tela</strong> na barra esquerda para mostrar algo na sala.
           </p>
         </div>
       </div>
@@ -177,7 +204,7 @@
     <section class="chat-container" id="chatContainer">
       <div class="messages" id="messagesContainer"></div>
       <div id="soundboardBar" class="soundboard-bar">
-        <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;">SOUNDBOARD:</span>
+        <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;">Efeitos:</span>
         <button type="button" class="btn" style="padding: 4px 9px;" onclick="sendSoundEffect('party')">🎉 Festa</button>
         <button type="button" class="btn" style="padding: 4px 9px;" onclick="sendSoundEffect('alert')">🚨 Alerta</button>
         <button type="button" class="btn" style="padding: 4px 9px;" onclick="sendSoundEffect('badum')">🥁 Ba-dum</button>
@@ -194,8 +221,11 @@
         <button type="button" id="btnAttachImage" class="btn icon-btn" onclick="triggerChatImagePicker()" title="Anexar imagem (ou arraste/Ctrl+V)">
           <i data-lucide="paperclip"></i>
         </button>
-        <input id="chatInput" class="chat-input" type="text" placeholder="Conversar na sala (Markdown, **negrito**, `código`, Ctrl+V ou arraste imagem)..." autocomplete="off" />
-        <button type="submit" class="btn" style="background: var(--brand); padding: 0 16px;"><i data-lucide="send"></i> Enviar</button>
+        <button type="button" id="btnSoundboard" class="btn icon-btn" onclick="toggleSoundboard()" title="Efeitos sonoros da sala">
+          <i data-lucide="sparkles"></i>
+        </button>
+        <input id="chatInput" class="chat-input" type="text" placeholder="Escrever mensagem na sala..." autocomplete="off" />
+        <button type="submit" class="btn" style="background: var(--brand); color: #fff; padding: 0 16px;"><i data-lucide="send"></i> Enviar</button>
       </form>
     </section>
 
@@ -203,206 +233,348 @@
     <nav id="mobileActionBar" class="mobile-action-bar">
       <button type="button" class="btn" onclick="toggleMobileSidebar(true)">☰ Salas</button>
       <button type="button" id="mBtnVoice" class="btn" onclick="toggleVoiceConnection()">🎙️ Voz</button>
-      <button type="button" id="mBtnMute" class="btn" onclick="toggleMute()">🎤 Mute</button>
+      <button type="button" id="mBtnMute" class="btn" onclick="toggleMute()">🎤 Mutar</button>
       <button type="button" id="mBtnWebcam" class="btn" onclick="toggleWebcam()">📷 Cam</button>
-      <button type="button" id="mBtnGoLive" class="btn" style="background: var(--brand);" onclick="handleGoLiveButton()">🖥️ Go Live</button>
+      <button type="button" id="mBtnGoLive" class="btn" style="background: var(--brand); color: #fff;" onclick="handleGoLiveButton()">🖥️ Tela</button>
     </nav>
   </main>
 
-  <!-- Modal Go Live (Equivalente ao PresentDesktopSourcePicker / getDesktopCaptureSources) -->
+  <!-- Modal de Transmissão de Tela -->
   <div class="modal-backdrop" id="goLiveModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>Compartilhar Tela (Go Live)</h2>
-        <button class="btn" onclick="closeGoLiveModal()">✕</button>
+        <h2>Transmitir Tela</h2>
+        <button class="btn soft-btn" onclick="closeGoLiveModal()">✕</button>
       </div>
       <div class="modal-body">
         <div class="mode-selector">
           <div id="modeWebRtcCard" class="mode-card selected" onclick="selectShareMode('web_rtc')">
-            <h4>⚡ Modo 1: WebRTC + TURN (60 FPS + Áudio)</h4>
-            <p>Captura tela, janela de jogo ou aba com áudio do sistema (<code>soundshare_loopback</code>) usando STUN + TURN Relay.</p>
+            <div class="mode-card-head">
+              <h4>⚡ Direto (P2P)</h4>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('web_rtc', event)" title="Ver como este modo funciona">? Como funciona</button>
+            </div>
+            <p>Menor atraso e áudio do computador; ideal para a maioria das chamadas.</p>
+            <div id="modeHelpWebRtc" class="mode-help-box">
+              Envia vídeo e áudio diretamente entre você e os participantes sem passar pelo servidor intermediário quando a rede permite, garantindo resposta rápida em jogos e vídeos.
+            </div>
           </div>
           <div id="modeRelayCard" class="mode-card" onclick="selectShareMode('universal_relay')">
-            <h4>🌐 Modo 2: Relay Universal (Anti-CGNAT)</h4>
-            <p>Captura qualquer janela/tela e transmite pelo túnel WSS com backpressure <code>SignalVideoOutputSinkReady</code>. Alternativa para redes com UDP/CGNAT bloqueado (sujeito à banda de upload do anfitrião).</p>
+            <div class="mode-card-head">
+              <h4>🌐 Modo Compatível</h4>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('universal_relay', event)" title="Ver como este modo funciona">? Como funciona</button>
+            </div>
+            <p>Usa o túnel da sala quando redes restritas bloqueiam conexão direta.</p>
+            <div id="modeHelpRelay" class="mode-help-box">
+              Transmite os quadros pela conexão segura principal da sala com controle automático de fila, funcionando mesmo em operadoras ou roteadores mais fechados (depende da banda de upload do anfitrião).
+            </div>
           </div>
           <div id="modeNativeCard" class="mode-card" onclick="selectShareMode('native_host')">
-            <h4>🦀 Modo 3: Motor Nativo Rust (DXGI + WASAPI)</h4>
-            <p>Usa captura GPU via DXGI até 60 FPS (fallback GDI) e áudio do sistema via WASAPI na máquina host.</p>
+            <div class="mode-card-head">
+              <h4>🖥️ Captura do PC</h4>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('native_host', event)" title="Ver como este modo funciona">? Como funciona</button>
+            </div>
+            <p>Captura direta do computador do anfitrião com alta estabilidade.</p>
+            <div id="modeHelpNative" class="mode-help-box">
+              O próprio aplicativo captura a tela e o áudio do sistema diretamente no Windows do anfitrião, sem depender da janela do navegador. Ideal para jogos em tela cheia ou longas sessões.
+            </div>
           </div>
         </div>
 
         <div id="nativeScreensSection" style="display: none;">
           <div class="section-title" style="padding-left: 0;">
-            <span>Monitores e Janelas Detectados pelo Rust (GetScreenPreviews)</span>
-            <button class="btn" style="padding: 3px 8px;" onclick="loadNativeScreenPreviews()">↻ Atualizar Miniaturas</button>
+            <span>Telas e janelas disponíveis</span>
+            <button class="btn soft-btn" style="padding: 3px 8px;" onclick="loadNativeScreenPreviews()">↻ Atualizar</button>
           </div>
           <div id="nativePreviewGrid" class="preview-grid"></div>
         </div>
 
         <div id="browserCaptureSourceGroup" class="field-group">
-          <label>Fonte de Vídeo no Navegador (PC ou Celular)</label>
+          <label>O que transmitir</label>
           <select id="selectCaptureSource">
-            <option value="display" selected>🖥️ Tela / Janela / Aba (Navegador PC)</option>
-            <option value="camera_env">📱 Câmera Traseira no Palco (Celular)</option>
-            <option value="camera_user">🤳 Câmera Frontal no Palco (Celular / Webcam)</option>
+            <option value="display" selected>🖥️ Tela, janela ou aba</option>
+            <option value="camera_env">📱 Câmera traseira</option>
+            <option value="camera_user">🤳 Câmera frontal / Webcam</option>
           </select>
         </div>
 
         <div class="settings-row">
           <div class="field-group">
-            <label>Resolução (Qualidade)</label>
+            <label>Qualidade</label>
             <select id="selectResolution">
-              <option value="1280x720">720p (1280x720 - Leve)</option>
-              <option value="1920x1080" selected>1080p (1920x1080 - Full HD)</option>
-              <option value="2560x1440">1440p (2560x1440 - QHD)</option>
+              <option value="1280x720">720p (Leve)</option>
+              <option value="1920x1080" selected>1080p (Full HD)</option>
+              <option value="2560x1440">1440p (Alta definição)</option>
             </select>
           </div>
           <div class="field-group">
-            <label>Taxa de Quadros (FPS)</label>
+            <label>Fluidez (FPS)</label>
             <select id="selectFps">
               <option value="15">15 FPS (Economia)</option>
               <option value="30" selected>30 FPS (Padrão)</option>
-              <option value="60">60 FPS (Fluido - Jogos)</option>
+              <option value="60">60 FPS (Jogos)</option>
             </select>
           </div>
           <div class="field-group">
-            <label>Áudio do Sistema</label>
+            <label>Som da transmissão</label>
             <select id="selectAudioOrQuality">
-              <option value="audio_on" selected>Compartilhar Áudio do Sistema</option>
-              <option value="audio_off">Apenas Vídeo (Sem Áudio)</option>
+              <option value="audio_on" selected>Compartilhar áudio do computador</option>
+              <option value="audio_off">Somente vídeo (Sem áudio)</option>
             </select>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeGoLiveModal()">Cancelar</button>
-        <button class="btn" style="background: var(--brand); padding: 8px 18px;" onclick="confirmStartScreenShare()">🔴 Iniciar Transmissão (Go Live)</button>
+        <button class="btn soft-btn" onclick="closeGoLiveModal()">Cancelar</button>
+        <button class="btn" style="background: var(--brand); color: #fff; padding: 8px 18px;" onclick="confirmStartScreenShare()">🔴 Iniciar Transmissão</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal para Conectar ao Servidor Remoto de um Amigo -->
+  <!-- Modal para Conectar à Sala de um Amigo -->
   <div class="modal-backdrop" id="joinRemoteModal">
-    <div class="modal" style="width: 480px;">
+    <div class="modal" style="width: 460px;">
       <div class="modal-header">
-        <h2>🔗 Conectar à Sala de um Amigo (Internet)</h2>
-        <button class="btn" onclick="closeJoinRemoteModal()">✕</button>
+        <h2>🔗 Entrar na Sala de um Amigo</h2>
+        <button class="btn soft-btn" onclick="closeJoinRemoteModal()">✕</button>
       </div>
       <div class="modal-body">
         <p style="font-size: 13px; color: var(--text-muted); line-height: 1.45;">
-          Cole abaixo o <strong>Código de Convite</strong> (ex.: <code>DROCSID-xxxx-xxxx</code>) ou o <strong>Link HTTPS</strong> que seu amigo gerou no Drocsid dele:
+          Cole o <strong>Código de Convite</strong> (ex.: <code>DROCSID-xxxx-xxxx</code>) ou o <strong>Link</strong> enviado pelo seu amigo:
         </p>
         <div class="field-group">
-          <label>Código de Convite ou URL do Servidor</label>
+          <label>Código ou Link do Convite</label>
           <input id="remoteInviteInput" type="text" placeholder="Ex: DROCSID-cool-frog-1234 ou https://..." />
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="resetToLocalServer()">Voltar ao Meu Servidor Local</button>
-        <button class="btn" style="background: var(--brand); padding: 8px 16px;" onclick="connectToFriendInvite()">Conectar Agora</button>
+        <button class="btn soft-btn" onclick="resetToLocalServer()">Voltar à Sala Local</button>
+        <button class="btn" style="background: var(--brand); color: #fff; padding: 8px 16px;" onclick="connectToFriendInvite()">Conectar</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal de Configuração TURN (Opcional - P0-6) -->
-  <div class="modal-backdrop" id="turnModal">
-    <div class="modal" style="width: 480px;">
+  <!-- Modal de Configurações Unificado (Aparência, Rede & Guias Sob Demanda) -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal" style="width: 560px; max-width: 96vw;">
       <div class="modal-header">
-        <h2>⚙️ Servidor TURN (Opcional)</h2>
-        <button class="btn" onclick="closeTurnModal()">✕</button>
+        <h2>⚙️ Configurações</h2>
+        <button type="button" class="btn soft-btn" onclick="closeSettingsModal()">✕</button>
+      </div>
+      <div class="settings-tabs" role="tablist">
+        <button type="button" class="settings-tab active" data-settings-tab="appearance" onclick="selectSettingsTab('appearance')">🎨 Aparência</button>
+        <button type="button" class="settings-tab" data-settings-tab="network" onclick="selectSettingsTab('network')">🌐 Rede e Conexão</button>
+        <button type="button" class="settings-tab" data-settings-tab="guides" onclick="selectSettingsTab('guides')">💡 Como funciona</button>
+      </div>
+      <div class="modal-body">
+        <!-- Aba Aparência -->
+        <div class="settings-panel active" data-settings-panel="appearance">
+          <div class="soft-card">
+            <div class="soft-card-title">Tema visual</div>
+            <p class="soft-card-desc">Escolha as cores que forem mais confortáveis para você:</p>
+            <div class="choice-pills">
+              <button type="button" class="btn choice-pill" data-theme-choice="dark" onclick="setTheme('dark')">🌙 Escuro</button>
+              <button type="button" class="btn choice-pill" data-theme-choice="amoled" onclick="setTheme('amoled')">🖤 AMOLED</button>
+              <button type="button" class="btn choice-pill" data-theme-choice="light" onclick="setTheme('light')">☀️ Claro</button>
+            </div>
+            <button id="btnThemeToggle" type="button" class="btn soft-btn" style="margin-top: 8px; width: fit-content;" onclick="toggleTheme()">🎨 Alternar próximo tema</button>
+          </div>
+
+          <div class="soft-card">
+            <div class="soft-card-title">Espaçamento da interface</div>
+            <p class="soft-card-desc">Ajuste o espaço entre mensagens e listas de salas:</p>
+            <div class="choice-pills">
+              <button type="button" class="btn choice-pill" data-density-choice="cozy" onclick="setDensity('cozy')">Confortável</button>
+              <button type="button" class="btn choice-pill" data-density-choice="compact" onclick="setDensity('compact')">Compacto</button>
+            </div>
+            <button id="btnDensityToggle" type="button" class="btn soft-btn" style="margin-top: 8px; width: fit-content;" onclick="toggleDensity()">↕️ Alternar espaçamento</button>
+          </div>
+
+          <div class="soft-card">
+            <label class="audio-check-row">
+              <input id="showTechDetailsCheckbox" type="checkbox" onchange="toggleShowTechDetails(this.checked)" />
+              <span>Mostrar detalhes extras na barra superior (FPS e rota da chamada)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Aba Rede e Conexão -->
+        <div class="settings-panel" data-settings-panel="network">
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div>
+                <div class="soft-card-title">Modo compatível para voz</div>
+                <p class="soft-card-desc">Por padrão o Drocsid usa conexão direta e só muda automaticamente se sua rede bloquear.</p>
+              </div>
+              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('helpVoiceRelayCard')">? Como funciona</button>
+            </div>
+            <button id="btnVoiceRelay" type="button" class="btn soft-btn" onclick="toggleForceVoiceRelay()">🌐 Rota de Voz: Automático</button>
+            <div id="helpVoiceRelayCard" class="mode-help-box" style="margin-top: 8px;">
+              No modo <strong>Automático</strong>, o áudio vai direto entre você e seus amigos. Caso seu provedor bloqueie conexões diretas, o aplicativo alterna sozinho para o túnel seguro. Ative o modo forçado apenas se notar picotes constantes.
+            </div>
+          </div>
+
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div>
+                <div class="soft-card-title">Servidor de apoio (TURN)</div>
+                <p class="soft-card-desc">Recurso opcional caso queira usar um servidor intermediário próprio.</p>
+              </div>
+              <button type="button" class="btn soft-btn" onclick="closeSettingsModal(); openTurnModal()">Configurar</button>
+            </div>
+          </div>
+
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div>
+                <div class="soft-card-title">Áudio, Microfone e Tecla para Falar</div>
+                <p class="soft-card-desc">Escolha microfone, fone, redução de ruído e atalho de fala.</p>
+              </div>
+              <button type="button" class="btn soft-btn" onclick="closeSettingsModal(); openAudioSettingsModal()">Abrir</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aba Como funciona -->
+        <div class="settings-panel" data-settings-panel="guides">
+          <p class="soft-card-desc" style="margin-bottom: 4px;">
+            Abra apenas os cartões que tiver curiosidade de entender:
+          </p>
+
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div class="soft-card-title">⚡ Direto vs 🌐 Modo Compatível vs 🖥️ Captura do PC</div>
+              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideEnginesBody')">Ver explicação</button>
+            </div>
+            <div id="guideEnginesBody" class="mode-help-box">
+              <strong>Direto (P2P):</strong> envia vídeo e som direto entre os computadores da sala, ideal para filmes e jogos com baixa latência.<br/>
+              <strong>Modo Compatível:</strong> passa os dados pelo túnel da sala — ótimo quando a operadora bloqueia conexões diretas.<br/>
+              <strong>Captura do PC:</strong> disponível para o anfitrião capturar a tela inteira direto do Windows com alta estabilidade.
+            </div>
+          </div>
+
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div class="soft-card-title">🎙️ Como funcionam Voz e Redução de Ruído</div>
+              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideAudioBody')">Ver explicação</button>
+            </div>
+            <div id="guideAudioBody" class="mode-help-box">
+              O filtro inteligente reduz ruídos constantes de fundo (teclado, ventilador) antes de enviar sua voz. Você também pode ativar a opção de apertar uma tecla para falar e ajustar o nível mínimo do microfone em <em>Opções → Áudio</em>.
+            </div>
+          </div>
+
+          <div class="soft-card">
+            <div class="soft-card-head">
+              <div class="soft-card-title">🔒 Convites e Segurança</div>
+              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideSecurityBody')">Ver explicação</button>
+            </div>
+            <div id="guideSecurityBody" class="mode-help-box">
+              Só quem tem o link completo ou código gerado por você consegue acessar suas salas. Você pode gerar uma nova chave a qualquer momento no cartão <strong>Convites</strong> para invalidar links antigos.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button id="btnShutdownAppSettings" type="button" class="btn" style="display: none; background: var(--red-hover); color: #fff;" onclick="closeSettingsModal(); shutdownHostApp()">⏻ Encerrar App</button>
+        <button type="button" class="btn" style="background: var(--brand); color: #fff; margin-left: auto;" onclick="closeSettingsModal()">Concluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Configuração de Servidor de Apoio (TURN) -->
+  <div class="modal-backdrop" id="turnModal">
+    <div class="modal" style="width: 460px;">
+      <div class="modal-header">
+        <h2>🌐 Servidor de Apoio (Opcional)</h2>
+        <button class="btn soft-btn" onclick="closeTurnModal()">✕</button>
       </div>
       <div class="modal-body">
         <p style="font-size: 13px; color: var(--text-muted); line-height: 1.45;">
-          Se você e seus amigos estiverem em redes com NAT/CGNAT restrito e o WebRTC falhar, o Drocsid alterna automaticamente para o <strong>Relay pelo servidor</strong>. Opcionalmente, informe um servidor TURN próprio ou da Metered/Cloudflare:
+          Na maioria das vezes você não precisa preencher nada aqui: o Drocsid alterna para o modo compatível automaticamente. Preencha apenas se possuir um servidor TURN próprio:
         </p>
         <div class="field-group">
-          <label>URL do Servidor TURN (ex: turn:seu-servidor:3478)</label>
-          <input id="turnUrlInput" type="text" placeholder="turn:..." />
+          <label>Endereço do servidor</label>
+          <input id="turnUrlInput" type="text" placeholder="turn:seu-servidor:3478" />
         </div>
         <div class="field-group">
-          <label>Usuário TURN</label>
+          <label>Usuário</label>
           <input id="turnUserInput" type="text" placeholder="usuario" />
         </div>
         <div class="field-group">
-          <label>Senha / Credencial TURN</label>
+          <label>Senha / Credencial</label>
           <input id="turnPassInput" type="password" placeholder="senha" />
         </div>
         <label id="shareTurnRow" style="display: none; align-items: center; gap: 8px; font-size: 13px; color: var(--text-normal); cursor: pointer;">
           <input id="shareTurnCheckbox" type="checkbox" style="width: 16px; height: 16px; accent-color: var(--brand);" />
-          Compartilhar esta configuração TURN com convidados autenticados da sala
+          Compartilhar esta configuração com convidados da sala
         </label>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="clearTurnConfig()">Limpar TURN</button>
-        <button class="btn" style="background: var(--brand); padding: 8px 16px;" onclick="saveTurnConfig()">Salvar</button>
+        <button class="btn soft-btn" onclick="clearTurnConfig()">Limpar</button>
+        <button class="btn" style="background: var(--brand); color: #fff; padding: 8px 16px;" onclick="saveTurnConfig()">Salvar</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal de Configuração de Áudio, Supressão IA (RNNoise) e Push-to-Talk (P2-3 + Itens 1 e 5) -->
+  <!-- Modal de Áudio, Microfone e Tecla para Falar -->
   <div class="modal-backdrop" id="audioSettingsModal">
     <div class="modal" style="width: 520px; max-width: 96vw;">
       <div class="modal-header">
-        <h2>🎛️ Áudio, Supressão IA & Push-to-Talk</h2>
-        <button class="btn" onclick="closeAudioSettingsModal()">✕</button>
+        <h2>🎛️ Áudio e Microfone</h2>
+        <button class="btn soft-btn" onclick="closeAudioSettingsModal()">✕</button>
       </div>
       <div class="modal-body" style="gap: 12px;">
         <div class="field-group">
-          <label>Microfone de Entrada</label>
+          <label>Microfone de entrada</label>
           <select id="micSelect"></select>
         </div>
         <div class="field-group">
-          <label>Alto-Falante / Fone de Saída</label>
+          <label>Fone / Alto-falante de saída</label>
           <select id="speakerSelect"></select>
         </div>
         <label class="audio-check-row">
           <input id="rnnoiseCheckbox" type="checkbox" />
-          <span>Supressão de Ruído IA (<strong>RNNoise</strong> WASM a 48 kHz)</span>
+          <span>Redução inteligente de ruído de fundo</span>
         </label>
         <div class="audio-slider-row">
           <div class="audio-slider-head">
-            <label for="micGainRange">Ganho do Microfone</label>
+            <label for="micGainRange">Volume do microfone</label>
             <span id="micGainValue" class="audio-slider-val">100%</span>
           </div>
           <input id="micGainRange" type="range" min="20" max="220" step="5" value="100" oninput="previewMicGainChange(this.value)" />
         </div>
         <div class="audio-slider-row">
           <div class="audio-slider-head">
-            <label for="vadThresholdRange">Sensibilidade VAD (portão de voz)</label>
+            <label for="vadThresholdRange">Sensibilidade para abrir microfone</label>
             <span id="vadThresholdValue" class="audio-slider-val">1.5%</span>
           </div>
           <input id="vadThresholdRange" type="range" min="3" max="80" step="1" value="15" oninput="previewVadThresholdChange(this.value)" />
         </div>
         <div class="vu-row">
-          <div class="vu-bar-wrap" title="Nível atual de entrada vs limiar VAD">
+          <div class="vu-bar-wrap" title="Nível atual da voz vs limite configurado">
             <div class="vu-bar-fill" id="micVuFill"></div>
             <div class="vu-threshold-mark" id="micVuThresholdMark"></div>
           </div>
-          <button class="btn" id="btnMicTest" type="button" onclick="toggleMicLoopbackTest()">🎧 Testar Microfone</button>
+          <button class="btn soft-btn" id="btnMicTest" type="button" onclick="toggleMicLoopbackTest()">🎧 Testar Microfone</button>
         </div>
         <div class="ptt-config-box">
           <label class="audio-check-row">
             <input id="pttEnabledCheckbox" type="checkbox" />
-            <span>Ativar Push-to-Talk</span>
+            <span>Falar apenas ao segurar uma tecla (Aperto para Falar)</span>
           </label>
           <div class="ptt-bind-row">
-            <span>Tecla / Botão PTT:</span>
+            <span>Tecla / Botão:</span>
             <strong id="pttBindingLabel">V (ou Espaço padrão)</strong>
-            <button class="btn" id="btnBindPttKey" type="button" onclick="startCapturePttBind()">🎹 Capturar Tecla/Mouse</button>
+            <button class="btn soft-btn" id="btnBindPttKey" type="button" onclick="startCapturePttBind()">🎹 Definir Tecla</button>
           </div>
           <label class="audio-check-row" id="globalPttRow" style="display: none;">
             <input id="globalPttCheckbox" type="checkbox" />
-            <span>Push-to-Talk Global no Windows (funciona com o app minimizado — Host)</span>
+            <span>Funcionar mesmo com o aplicativo minimizado (Windows)</span>
           </label>
         </div>
-        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
-          Obs.: A seleção de saída (<code>setSinkId</code>) requer navegador Chromium desktop. A captura neural RNNoise opera em 48 kHz offline.
-        </p>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeAudioSettingsModal()">Cancelar</button>
-        <button class="btn" style="background: var(--brand); padding: 8px 16px;" onclick="saveAudioSettings()">Aplicar</button>
+        <button class="btn soft-btn" onclick="closeAudioSettingsModal()">Cancelar</button>
+        <button class="btn" style="background: var(--brand); color: #fff; padding: 8px 16px;" onclick="saveAudioSettings()">Aplicar</button>
       </div>
     </div>
   </div>

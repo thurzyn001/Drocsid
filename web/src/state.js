@@ -1,6 +1,6 @@
 // Estado global compartilhado da SPA Drocsid
 
-export const BASE_DOC_TITLE = "Drocsid — Chat, Voz & Go Live (Internet & P2P)";
+export const BASE_DOC_TITLE = "Drocsid";
 export const APP_VERSION = typeof __DROCSID_APP_VERSION__ !== "undefined" ? __DROCSID_APP_VERSION__ : "0.4.0";
 export const VOICE_RELAY_SAMPLE_RATE = 16000;
 export const VOICE_RELAY_CHUNK_SAMPLES = 640; // 40ms @ 16kHz
@@ -85,6 +85,8 @@ export const state = {
   chatEntriesById: new Map(),
   theme: typeof localStorage !== "undefined" ? (readStorage(localStorage, "drocsid_theme") || "dark") : "dark",
   density: typeof localStorage !== "undefined" ? (readStorage(localStorage, "drocsid_density") || "cozy") : "cozy",
+  showTechDetails: typeof localStorage !== "undefined" ? readStorage(localStorage, "drocsid_show_tech") === "true" : false,
+  networkCardOpen: false,
   qrExpanded: false,
 
   localAudioStream: null,

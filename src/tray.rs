@@ -528,7 +528,7 @@ pub fn spawn_system_tray(
         nid.u_flags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         nid.u_callback_message = WM_TRAY;
         nid.h_icon = h_icon;
-        let tip = "Drocsid — Chat, Voz & Go Live";
+        let tip = "Drocsid";
         for (i, ch) in tip.encode_utf16().take(127).enumerate() {
             nid.sz_tip[i] = ch;
         }

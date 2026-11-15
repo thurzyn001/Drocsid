@@ -942,7 +942,7 @@ async fn handle_socket(
                 if mode == ScreenShareMode::NativeHost && !is_host {
                     warn!("Convidado {peer_id} tentou iniciar captura nativa do host — negado");
                     let _ = tx.try_send(ServerMessage::Error {
-                        message: "Somente o anfitrião pode usar o Motor Nativo (ele captura a tela do PC do servidor).".into(),
+                        message: "Somente o anfitrião pode usar a Captura do PC (ela transmite a tela do servidor).".into(),
                     });
                     continue;
                 }
@@ -972,9 +972,9 @@ async fn handle_socket(
 
                 if let Some(info) = updated {
                     let mode_label = match mode {
-                        ScreenShareMode::WebRtc => "WebRTC",
-                        ScreenShareMode::UniversalRelay => "Relay pelo servidor",
-                        ScreenShareMode::NativeHost => "Motor Nativo Rust",
+                        ScreenShareMode::WebRtc => "Conexão Direta",
+                        ScreenShareMode::UniversalRelay => "Modo Compatível",
+                        ScreenShareMode::NativeHost => "Captura do PC",
                     };
 
                     state

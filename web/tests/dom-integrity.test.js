@@ -49,9 +49,36 @@ describe("integridade de src/ui.html", () => {
       "toastContainer",
       "dialogModal",
       "lightboxModal",
+      "settingsModal",
+      "btnOptionsMenu",
+      "optionsPopover",
+      "networkDetailsWrap",
+      "modeHelpWebRtc",
+      "modeHelpRelay",
+      "modeHelpNative",
     ];
     for (const id of expectedIds) {
       expect(doc.getElementById(id), `ID ausente no DOM: ${id}`).not.toBeNull();
+    }
+
+    expect(doc.title).toBe("Drocsid");
+    const styleEl = doc.querySelector("style");
+    expect(styleEl).not.toBeNull();
+    expect(styleEl.textContent).toMatch(/:root\[data-theme=["']?amoled["']?\]/);
+    expect(styleEl.textContent).toMatch(/:root\[data-theme=["']?light["']?\]/);
+    expect(styleEl.textContent).toMatch(/:root\[data-density=["']?compact["']?\]/);
+
+    const visibleText = doc.body.textContent || "";
+    for (const forbidden of [
+      "Deafen",
+      "Go Live",
+      "GetScreenPreviews",
+      "SignalVideoOutputSinkReady",
+      "soundshare_loopback",
+      "Rust GDI",
+      "SOUNDBOARD:",
+    ]) {
+      expect(visibleText).not.toContain(forbidden);
     }
 
     const scriptBody = scriptEl.textContent;

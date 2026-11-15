@@ -19,37 +19,76 @@ export function applyAppearancePreferences() {
   if (typeof document === "undefined") return;
   const theme = ["dark", "amoled", "light"].includes(state.theme) ? state.theme : "dark";
   const density = state.density === "compact" ? "compact" : "cozy";
+  state.theme = theme;
+  state.density = density;
+
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.density = density;
+  document.documentElement.style.colorScheme = theme === "light" ? "light" : "dark";
+  if (document.body) {
+    document.body.dataset.theme = theme;
+    document.body.dataset.density = density;
+  }
 
   const themeLabels = { dark: "Escuro", amoled: "AMOLED", light: "Claro" };
   const btnTheme = document.getElementById("btnThemeToggle");
   if (btnTheme) {
     btnTheme.title = `Tema atual: ${themeLabels[theme]} (clique para alternar)`;
+    btnTheme.textContent = `🎨 Tema: ${themeLabels[theme]}`;
     btnTheme.classList.toggle("active-green", theme !== "dark");
   }
+  document.querySelectorAll("[data-theme-choice]").forEach((el) => {
+    el.classList.toggle("active", el.dataset.themeChoice === theme);
+  });
+
   const btnDensity = document.getElementById("btnDensityToggle");
   if (btnDensity) {
     btnDensity.title = `Densidade: ${density === "compact" ? "Compacta" : "Confortável"}`;
+    btnDensity.textContent = `↕️ Espaçamento: ${density === "compact" ? "Compacto" : "Confortável"}`;
     btnDensity.classList.toggle("active-green", density === "compact");
+  }
+  document.querySelectorAll("[data-density-choice]").forEach((el) => {
+    el.classList.toggle("active", el.dataset.densityChoice === density);
+  });
+
+  const techCb = document.getElementById("showTechDetailsCheckbox");
+  if (techCb) techCb.checked = Boolean(state.showTechDetails);
+}
+
+export function setTheme(nextTheme, notify = true) {
+  const valid = ["dark", "amoled", "light"].includes(nextTheme) ? nextTheme : "dark";
+  state.theme = valid;
+  try { localStorage.setItem("drocsid_theme", state.theme); } catch (_) {}
+  applyAppearancePreferences();
+  if (notify) {
+    const labels = { dark: "Escuro Padrão", amoled: "Preto AMOLED", light: "Claro Suave" };
+    showToast(`Tema: ${labels[state.theme]}`, "info", 1800);
   }
 }
 
 export function toggleTheme() {
   const order = ["dark", "amoled", "light"];
   const idx = order.indexOf(state.theme);
-  state.theme = order[(idx + 1) % order.length];
-  try { localStorage.setItem("drocsid_theme", state.theme); } catch (_) {}
+  setTheme(order[(idx + 1) % order.length], true);
+}
+
+export function setDensity(nextDensity, notify = true) {
+  state.density = nextDensity === "compact" ? "compact" : "cozy";
+  try { localStorage.setItem("drocsid_density", state.density); } catch (_) {}
   applyAppearancePreferences();
-  const labels = { dark: "Escuro Padrão", amoled: "AMOLED Preto Puro", light: "Claro" };
-  showToast(`Tema: ${labels[state.theme]}`, "info", 2000);
+  if (notify) {
+    showToast(`Espaçamento: ${state.density === "compact" ? "Compacto" : "Confortável"}`, "info", 1800);
+  }
 }
 
 export function toggleDensity() {
-  state.density = state.density === "compact" ? "cozy" : "compact";
-  try { localStorage.setItem("drocsid_density", state.density); } catch (_) {}
+  setDensity(state.density === "compact" ? "cozy" : "compact", true);
+}
+
+export function toggleShowTechDetails(force) {
+  state.showTechDetails = typeof force === "boolean" ? force : !state.showTechDetails;
+  try { localStorage.setItem("drocsid_show_tech", state.showTechDetails ? "true" : "false"); } catch (_) {}
   applyAppearancePreferences();
-  showToast(`Densidade: ${state.density === "compact" ? "Compacta" : "Confortável"}`, "info", 2000);
 }
 
 export function renderRooms() {
@@ -331,13 +370,13 @@ export function renderPeers() {
         const ice = pc ? pc.iceConnectionState : "new";
         const inboundRelay = state.voiceRelayInboundPeers.has(peer.peer_id);
         if (!state.forceVoiceRelay && isWebRtcP2pAudioReceiving(peer.peer_id) && !inboundRelay) {
-          badgesHtml += `<span class="status-icon" style="color:var(--green);font-size:10px;font-weight:700;" title="Voz P2P WebRTC conectada diretamente">P2P</span>`;
+          badgesHtml += `<span class="status-icon" style="color:var(--green);font-size:10px;font-weight:700;" title="Voz em conexão direta com menor atraso">Direto</span>`;
         } else if (state.forceVoiceRelay || peer.voice_relay || inboundRelay || (state.voiceEnabled && shouldTransmitVoiceRelay())) {
-          badgesHtml += `<span class="status-icon" style="color:#7289da;font-size:10px;font-weight:700;" title="Voz via Relay no túnel WebSocket (anti-CGNAT)">Relay</span>`;
+          badgesHtml += `<span class="status-icon" style="color:var(--brand);font-size:10px;font-weight:700;" title="Voz pelo modo compatível (túnel da sala)">Túnel</span>`;
         } else if (ice === "failed" || ice === "disconnected") {
-          badgesHtml += `<span class="status-icon" style="color:var(--yellow);font-size:10px;font-weight:700;" title="NAT/CGNAT bloqueou UDP direto — alternando para Relay">NAT</span>`;
+          badgesHtml += `<span class="status-icon" style="color:var(--yellow);font-size:10px;font-weight:700;" title="Rede restrita detectada — alternando para o modo compatível">Rede</span>`;
         } else {
-          badgesHtml += `<span class="status-icon" style="color:var(--text-muted);font-size:10px;" title="Conectando rota WebRTC P2P (${escapeHtml(ice)})">...</span>`;
+          badgesHtml += `<span class="status-icon" style="color:var(--text-muted);font-size:10px;" title="Conectando rota de áudio (${escapeHtml(ice)})">...</span>`;
         }
       }
       const curPeerVol = state.peerVolumes.has(peer.peer_id) ? state.peerVolumes.get(peer.peer_id) : 100;

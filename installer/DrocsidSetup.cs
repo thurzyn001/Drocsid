@@ -46,7 +46,7 @@ namespace DrocsidInstaller
 
             Label lblTitle = new Label
             {
-                Text = "Drocsid — Chat, Voz & Go Live (Rust)",
+                Text = "Drocsid",
                 Font = new Font("Segoe UI", 14f, FontStyle.Bold),
                 ForeColor = Color.White,
                 AutoSize = true,

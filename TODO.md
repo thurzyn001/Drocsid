@@ -109,3 +109,8 @@ Baseado na auditoria da base atual (`v0.3.0`) em [`ARCHITECTURE.md`](ARCHITECTUR
 2. **[Concluída] Etapa 2 — Quick Wins de Palco, Rede e UX (Itens 9, 8 e 6):** Corrigir PiP no Canvas e flicker da Grade 2x2; adicionar botão Parar Túnel, QR Code, alerta de `Welcome.version`, monitoramento SSH e Tray rico; substituir `alert`/`confirm`/`prompt` por Toasts/Modais, *lightbox*, reações e preview de salas.
 3. **[Concluída] Etapa 3 — Pipeline de Áudio e Vídeo de Nova Geração (Itens 5, 1 e 2):** RNNoise + VU meter + teste de mic + PTT configurável/global; `AudioWorklet` + Opus no Relay de voz; `WebCodecs` + `createImageBitmap` no Relay de vídeo.
 4. **[Concluída] Etapa 4 — Motor Nativo Windows & Moderação/Mídia (Itens 3, 4 e 7):** DXGI Desktop Duplication + fallback GDI + reuso de buffers; WASAPI Loopback (`src/audio_capture.rs`); upload de mídia fora de `chat_history.json`, ban de sessão/IP, server mute e gerenciamento/trancamento de salas.
+5. **[Concluída] Refino UX "Soft" & Temas (`v0.4.1`):**
+   - [x] Simplificar título para `Drocsid` e traduzir jargões (`Deafen` $\rightarrow$ `Sem Áudio`, `Go Live` $\rightarrow$ `Transmitir Tela`, remover termos técnicos internos da UI principal)
+   - [x] Agrupar controles secundários no menu **Opções e Ajustes** e modal unificado **Configurações** (Aparência, Rede/Conexão, Guias `? Como funciona` sob demanda) + recolher cartão de **Convites** e barra de **Efeitos** por padrão
+   - [x] Corrigir seletor CSS/JS de temas (`Escuro`, `AMOLED`, `Claro`) e densidade (`document.documentElement` + `document.body` + tokens de contraste)
+   - [x] Registrar regra permanente de minimalismo visual e UI "soft" em [`AGENTS.md`](AGENTS.md) (Seção 6)

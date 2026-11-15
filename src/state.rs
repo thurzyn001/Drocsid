@@ -80,7 +80,7 @@ impl AppState {
                     username: "Drocsid Bot".to_string(),
                     room: room.clone(),
                     text: format!(
-                        "Bem-vindo ao canal #{room}! Para jogar com amigos em outra rede/cidade sem VPN, clique em '📡 Gerar Convite' na barra lateral!"
+                        "Bem-vindo à sala #{room}! Para chamar amigos de outra rede sem VPN, clique em '📡 Convidar' na barra lateral."
                     ),
                     timestamp_ms: now_ms(),
                     is_system: true,

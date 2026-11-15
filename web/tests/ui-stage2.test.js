@@ -1,17 +1,32 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+
+vi.mock("../src/rnnoise-loader.js", () => ({
+  createRnnoiseNode: vi.fn(async () => null),
+}));
+vi.mock("../src/voice-worklet.js", () => ({
+  VOICE_CAPTURE_WORKLET_CODE: "",
+  registerVoiceCaptureWorklet: vi.fn(async () => false),
+}));
+
 import { state } from "../src/state.js";
 import { renderMarkdownSafe, appendChatEntry, updateChatEntryElement } from "../src/chat.js";
-import { renderRooms, toggleTheme, toggleDensity, applyAppearancePreferences } from "../src/sidebar.js";
+import { renderRooms, setTheme, toggleTheme, toggleDensity, applyAppearancePreferences } from "../src/sidebar.js";
 import {
   showToast,
   showConfirmModal,
   showPromptModal,
   resolveDialogModal,
   renderLucideIcons,
+  toggleOptionsMenu,
+  openSettingsModal,
+  selectSettingsTab,
 } from "../src/ui-feedback.js";
+import { toggleEngineHelp, updateGoLiveButtonState } from "../src/screenshare.js";
+import { toggleDeaf, refreshMuteButtonUi } from "../src/voice.js";
+import { toggleNetworkCard } from "../src/invite.js";
 import { togglePinGridPeer, updateStageView } from "../src/stage.js";
 
 const uiHtmlPath = path.resolve(__dirname, "..", "..", "src", "ui.html");
@@ -71,19 +86,63 @@ describe("Etapa 2: Markdown seguro, salas, modais, toasts e Grid incremental", (
     expect(text).toContain("2");
   });
 
-  it("toggleTheme e toggleDensity persistem preferências em dataset e localStorage", () => {
+  it("toggleTheme e toggleDensity persistem preferências em html/body dataset e localStorage", () => {
     applyAppearancePreferences();
     expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(document.body.dataset.theme).toBe("dark");
     expect(document.documentElement.dataset.density).toBe("cozy");
+    expect(document.body.dataset.density).toBe("cozy");
 
     toggleTheme();
     expect(state.theme).toBe("amoled");
     expect(document.documentElement.dataset.theme).toBe("amoled");
+    expect(document.body.dataset.theme).toBe("amoled");
     expect(localStorage.getItem("drocsid_theme")).toBe("amoled");
+
+    setTheme("light", false);
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.body.dataset.theme).toBe("light");
+    expect(document.documentElement.style.colorScheme).toBe("light");
 
     toggleDensity();
     expect(state.density).toBe("compact");
     expect(document.documentElement.dataset.density).toBe("compact");
+    expect(document.body.dataset.density).toBe("compact");
+  });
+
+  it("Menus de Opções/Configurações, cards explicativos sob demanda e rótulos pt-BR funcionam sem poluição", () => {
+    toggleOptionsMenu(true);
+    expect(document.getElementById("optionsPopover").classList.contains("open")).toBe(true);
+
+    openSettingsModal("network");
+    expect(document.getElementById("optionsPopover").classList.contains("open")).toBe(false);
+    expect(document.getElementById("settingsModal").classList.contains("open")).toBe(true);
+    expect(document.querySelector('[data-settings-panel="network"]').classList.contains("active")).toBe(true);
+
+    selectSettingsTab("guides");
+    expect(document.querySelector('[data-settings-panel="guides"]').classList.contains("active")).toBe(true);
+
+    expect(document.getElementById("modeHelpWebRtc").classList.contains("open")).toBe(false);
+    toggleEngineHelp("web_rtc");
+    expect(document.getElementById("modeHelpWebRtc").classList.contains("open")).toBe(true);
+    expect(document.getElementById("modeHelpRelay").classList.contains("open")).toBe(false);
+
+    toggleNetworkCard(true);
+    expect(document.getElementById("networkDetailsWrap").classList.contains("open")).toBe(true);
+
+    state.selfDeaf = false;
+    toggleDeaf();
+    expect(document.getElementById("btnDeaf").textContent).toBe("🙉 Som Desativado");
+    toggleDeaf();
+    expect(document.getElementById("btnDeaf").textContent).toBe("🎧 Sem Áudio");
+
+    state.selfMute = false;
+    refreshMuteButtonUi();
+    expect(document.getElementById("mBtnMute").textContent).toBe("🎤 Mutar");
+
+    updateGoLiveButtonState(false);
+    expect(document.getElementById("btnGoLive").textContent).toBe("🖥️ Transmitir Tela");
+    expect(document.getElementById("mBtnGoLive").textContent).toBe("🖥️ Tela");
   });
 
   it("showToast e modais assíncronos funcionam sem bloquear a thread", async () => {

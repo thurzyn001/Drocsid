@@ -132,11 +132,11 @@ export function updateVoiceRelayStatusUi() {
   const autoActive = state.voiceEnabled && shouldTransmitVoiceRelay();
   btn.classList.toggle("active-green", state.forceVoiceRelay || autoActive);
   if (state.forceVoiceRelay) {
-    btn.textContent = "🌐 Relay: ON";
+    btn.textContent = "🌐 Rota de Voz: Túnel Forçado";
   } else if (autoActive) {
-    btn.textContent = "🌐 Relay: Auto (Ativo)";
+    btn.textContent = "🌐 Rota de Voz: Automático (Em Túnel)";
   } else {
-    btn.textContent = "🌐 Relay: Auto";
+    btn.textContent = "🌐 Rota de Voz: Automático";
   }
 }
 

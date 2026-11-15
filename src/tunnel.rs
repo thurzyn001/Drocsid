@@ -196,7 +196,7 @@ impl TunnelManager {
                         st.active = false;
                         st.provider = "error".to_string();
                         st.status_message =
-                            "O túnel caiu inesperadamente. Clique em 'Gerar Convite' para reconectar."
+                            "A conexão pública foi encerrada. Clique em 'Convidar' para gerar um novo link."
                                 .to_string();
                     }
                 });
@@ -293,7 +293,7 @@ impl TunnelManager {
                             st.active = false;
                             st.provider = "error".to_string();
                             st.status_message =
-                                "O túnel SSH encerrou inesperadamente. Clique em 'Gerar Convite' para reconectar."
+                                "A conexão alternativa encerrou inesperadamente. Clique em 'Convidar' para reconectar."
                                     .to_string();
                         }
                     });

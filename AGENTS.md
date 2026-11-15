@@ -84,3 +84,20 @@ Toda mudança aprovada e implementada **só está concluída** quando a document
 - **Nunca reporte testes ou builds como aprovados sem executá-los após a última edição.** Informe exatamente o que passou, o que falhou e o que foi ignorado (como [`tests/ws_e2e.rs`](tests/ws_e2e.rs), marcado com `#[ignore = "precisa de sockets locais"]` em ambientes sem socket local).
 - **Cite apenas arquivos, símbolos, constantes e comportamentos verificados diretamente nos arquivos atuais.** Nunca preencha lacunas por suposição.
 - **Reproduza o idioma do projeto (`pt-BR`)** em mensagens, comentários novos, documentação e interface.
+
+---
+
+## 6. Minimalismo Visual, Clareza em `pt-BR` e Interface "Soft"
+
+- **Poluir o mínimo possível sem remover funcionalidades:**
+  - Mantenha visíveis na tela principal apenas as ações essenciais do uso contínuo (salas, pessoas na sala, entrar na voz, mutar, sem áudio, câmera e transmitir tela).
+  - Controles secundários, ajustes raros, preferências visuais e ações administrativas ou destrutivas (tema, densidade, modo compatível de rede/relay, servidor TURN, diagnóstico técnico, encerramento) devem ser organizados dentro de **menus de Opções / Configurações** ou seções recolhíveis — nunca empilhados como botões soltos na interface principal.
+- **Linguagem natural em `pt-BR` (zero jargão interno):**
+  - Evite termos em inglês na UI visível (ex.: não usar *"Deafen"*, *"Go Live"*, *"Mute"*, *"Soundboard"*) quando houver equivalente natural em português (*"Sem Áudio"*, *"Transmitir Tela"*, *"Mutar"*, *"Efeitos"*).
+  - Nunca exponha nomes de funções internas, símbolos Rust/C++ ou detalhes de baixo nível (`GetScreenPreviews`, `SignalVideoOutputSinkReady`, `soundshare_loopback`, `Rust GDI`, `CGNAT`, `WSS`, `WASAPI`, `setSinkId`) em botões, títulos ou descrições principais voltadas ao usuário.
+- **Explicações técnicas apenas sob demanda:**
+  - Cards informativos explicando como cada motor ou rota de rede funciona devem ficar **recolhidos por padrão** (ex.: botão discreto `? Como funciona` ou aba opcional em Configurações), exibidos somente quando o usuário optar por abrir.
+- **Estética "soft" e consistência entre temas:**
+  - Prefira hierarquia suave, bordas sutis, botões discretos para ações secundárias e superfícies confortáveis.
+  - Todo componente novo ou editado em [`web/src/styles/main.css`](web/src/styles/main.css) deve funcionar com contraste adequado nos três temas (`dark`, `amoled` e `light`, sincronizados via `data-theme` em `document.documentElement` e `document.body`) e em viewport mobile (`@media (max-width: 900px)`).
+

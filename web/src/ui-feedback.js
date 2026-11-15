@@ -27,6 +27,12 @@ import {
   Reply,
   Smile,
   Eye,
+  SlidersHorizontal,
+  ChevronDown,
+  HelpCircle,
+  Sparkles,
+  Power,
+  Menu,
 } from "lucide";
 import { state, sendWs } from "./state.js";
 
@@ -56,6 +62,12 @@ const LUCIDE_ICONS = {
   Reply,
   Smile,
   Eye,
+  SlidersHorizontal,
+  ChevronDown,
+  HelpCircle,
+  Sparkles,
+  Power,
+  Menu,
 };
 
 export function renderLucideIcons(root = document) {
@@ -287,10 +299,38 @@ export function initFeedbackListeners() {
     });
   }
 
+  const settingsModal = document.getElementById("settingsModal");
+  if (settingsModal && !settingsModal.dataset.boundBackdrop) {
+    settingsModal.dataset.boundBackdrop = "1";
+    settingsModal.addEventListener("click", (e) => {
+      if (e.target === settingsModal) closeSettingsModal();
+    });
+  }
+
+  if (!document.body.dataset.boundOutsideOptions) {
+    document.body.dataset.boundOutsideOptions = "1";
+    document.addEventListener("click", (e) => {
+      const wrap = document.getElementById("optionsMenuWrap");
+      const pop = document.getElementById("optionsPopover");
+      if (pop && pop.classList.contains("open") && wrap && !wrap.contains(e.target)) {
+        closeOptionsMenu();
+      }
+    });
+  }
+
   if (!document.body.dataset.boundModalEsc) {
     document.body.dataset.boundModalEsc = "1";
     window.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
+      const pop = document.getElementById("optionsPopover");
+      if (pop && pop.classList.contains("open")) {
+        closeOptionsMenu();
+        return;
+      }
+      if (settingsModal && settingsModal.classList.contains("open")) {
+        closeSettingsModal();
+        return;
+      }
       if (lightbox && lightbox.classList.contains("open")) {
         closeImageLightbox();
         return;
@@ -325,8 +365,55 @@ export function playNotificationBeep(freq = 660, durationMs = 80) {
 export function toggleSoundboard() {
   const bar = document.getElementById("soundboardBar");
   const btn = document.getElementById("btnSoundboard");
+  if (!bar) return;
   const open = bar.classList.toggle("open");
-  btn.classList.toggle("active-green", open);
+  if (btn) btn.classList.toggle("active-green", open);
+}
+
+export function closeOptionsMenu() {
+  const pop = document.getElementById("optionsPopover");
+  const btn = document.getElementById("btnOptionsMenu");
+  if (pop) pop.classList.remove("open");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+}
+
+export function toggleOptionsMenu(force) {
+  const pop = document.getElementById("optionsPopover");
+  const btn = document.getElementById("btnOptionsMenu");
+  if (!pop) return;
+  const open = typeof force === "boolean" ? force : !pop.classList.contains("open");
+  pop.classList.toggle("open", open);
+  if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+export function selectSettingsTab(tab = "appearance") {
+  const validTabs = ["appearance", "network", "guides"];
+  const chosen = validTabs.includes(tab) ? tab : "appearance";
+  document.querySelectorAll("[data-settings-tab]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.settingsTab === chosen);
+  });
+  document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.settingsPanel === chosen);
+  });
+}
+
+export function openSettingsModal(tab = "appearance") {
+  closeOptionsMenu();
+  selectSettingsTab(tab);
+  const modal = document.getElementById("settingsModal");
+  if (modal) modal.classList.add("open");
+}
+
+export function closeSettingsModal() {
+  const modal = document.getElementById("settingsModal");
+  if (modal) modal.classList.remove("open");
+}
+
+export function toggleInfoAccordion(panelId) {
+  if (!panelId) return;
+  const el = document.getElementById(panelId);
+  if (!el) return;
+  el.classList.toggle("open");
 }
 
 export function sendSoundEffect(kind) {
