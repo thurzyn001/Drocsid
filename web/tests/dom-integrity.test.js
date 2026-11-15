@@ -33,13 +33,13 @@ describe("integridade de src/ui.html", () => {
       "joinRemoteModal",
       "turnModal",
       "audioSettingsModal",
-      "btnThemeToggle",
-      "btnDensityToggle",
       "versionMismatchBadge",
       "inviteQrWrap",
       "btnToggleQr",
       "btnStopTunnel",
       "btnPiP",
+      "btnCloseSidebar",
+      "btnToggleSidebarTop",
       "typingIndicator",
       "chatReplyBanner",
       "chatFileInput",
@@ -62,6 +62,14 @@ describe("integridade de src/ui.html", () => {
     }
 
     expect(doc.title).toBe("Drocsid");
+    expect(doc.getElementById("btnPiP").textContent.trim()).toBe("PiP");
+    expect(doc.querySelector('[data-settings-tab="guides"]')).toBeNull();
+    expect(doc.querySelector('[data-settings-panel="guides"]')).toBeNull();
+    const goLiveHelpBtns = doc.querySelectorAll("#goLiveModal .help-pill-btn");
+    expect(goLiveHelpBtns.length).toBe(3);
+    for (const hb of goLiveHelpBtns) {
+      expect(hb.textContent.trim()).toBe("?");
+    }
     const styleEl = doc.querySelector("style");
     expect(styleEl).not.toBeNull();
     expect(styleEl.textContent).toMatch(/:root\[data-theme=["']?amoled["']?\]/);

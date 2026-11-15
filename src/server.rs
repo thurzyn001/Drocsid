@@ -30,10 +30,15 @@ use crate::{
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 const INDEX_HTML: &str = include_str!("ui.html");
+const APP_ICON_ICO: &[u8] = include_bytes!("../assets/drocsid.ico");
+const APP_ICON_SVG: &str = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='#5865F2'/><text x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Segoe UI,sans-serif' font-weight='bold'>D</text></svg>";
 
 pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(serve_index))
+        .route("/favicon.ico", get(serve_favicon))
+        .route("/icon.svg", get(serve_icon_svg))
+        .route("/manifest.webmanifest", get(serve_manifest))
         .route("/api/whoami", get(whoami))
         .route("/api/screens", get(serve_screen_previews))
         .route("/api/tunnel/status", get(get_tunnel_status))
@@ -52,6 +57,42 @@ pub fn build_router(state: Arc<AppState>) -> Router {
 
 async fn serve_index() -> Html<&'static str> {
     Html(INDEX_HTML)
+}
+
+async fn serve_favicon() -> Response {
+    (
+        [(header::CONTENT_TYPE, "image/x-icon")],
+        APP_ICON_ICO,
+    )
+        .into_response()
+}
+
+async fn serve_icon_svg() -> Response {
+    (
+        [(header::CONTENT_TYPE, "image/svg+xml; charset=utf-8")],
+        APP_ICON_SVG,
+    )
+        .into_response()
+}
+
+async fn serve_manifest() -> Response {
+    let manifest = serde_json::json!({
+        "name": "Drocsid",
+        "short_name": "Drocsid",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#1e1f22",
+        "theme_color": "#5865F2",
+        "icons": [
+            { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+            { "src": "/favicon.ico", "sizes": "64x64 48x48 32x32 16x16", "type": "image/x-icon" }
+        ]
+    });
+    (
+        [(header::CONTENT_TYPE, "application/manifest+json; charset=utf-8")],
+        manifest.to_string(),
+    )
+        .into_response()
 }
 
 /// Rota pública mínima: identifica o processo como Drocsid (usada para instância única).
@@ -645,6 +686,7 @@ async fn handle_socket(
                     state
                         .broadcast_to_room(&info.room, ServerMessage::PeerUpdated { peer: info.clone() }, None)
                         .await;
+                    state.broadcast_rooms_updated().await;
                 }
             }
 
@@ -902,17 +944,20 @@ async fn handle_socket(
                 speaking,
                 voice_relay,
             } => {
-                let (updated, voice_toggled) = {
+                let (updated, summary_changed) = {
                     let mut peers = state.peers.write().await;
                     if let Some(peer) = peers.get_mut(&peer_id) {
-                        let toggled = peer.info.in_voice != in_voice;
+                        let effective_mute = self_mute || peer.info.server_muted;
+                        let changed = peer.info.in_voice != in_voice
+                            || peer.info.self_mute != effective_mute
+                            || peer.info.self_deaf != self_deaf;
                         peer.info.in_voice = in_voice;
-                        peer.info.self_mute = self_mute || peer.info.server_muted;
+                        peer.info.self_mute = effective_mute;
                         peer.info.self_deaf = self_deaf;
                         peer.info.speaking =
                             in_voice && speaking && !self_mute && !self_deaf && !peer.info.server_muted;
                         peer.info.voice_relay = voice_relay;
-                        (Some(peer.info.clone()), toggled)
+                        (Some(peer.info.clone()), changed)
                     } else {
                         (None, false)
                     }
@@ -922,7 +967,7 @@ async fn handle_socket(
                     state
                         .broadcast_to_room(&info.room, ServerMessage::PeerUpdated { peer: info.clone() }, None)
                         .await;
-                    if voice_toggled {
+                    if summary_changed {
                         state.broadcast_rooms_updated().await;
                     }
                 }
@@ -1216,6 +1261,7 @@ async fn handle_socket(
                     state
                         .broadcast_to_room(&info.room, ServerMessage::PeerUpdated { peer: info.clone() }, None)
                         .await;
+                    state.broadcast_rooms_updated().await;
                     state
                         .push_system_message(
                             &info.room,

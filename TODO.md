@@ -111,6 +111,12 @@ Baseado na auditoria da base atual (`v0.3.0`) em [`ARCHITECTURE.md`](ARCHITECTUR
 4. **[Concluída] Etapa 4 — Motor Nativo Windows & Moderação/Mídia (Itens 3, 4 e 7):** DXGI Desktop Duplication + fallback GDI + reuso de buffers; WASAPI Loopback (`src/audio_capture.rs`); upload de mídia fora de `chat_history.json`, ban de sessão/IP, server mute e gerenciamento/trancamento de salas.
 5. **[Concluída] Refino UX "Soft" & Temas (`v0.4.1`):**
    - [x] Simplificar título para `Drocsid` e traduzir jargões (`Deafen` $\rightarrow$ `Sem Áudio`, `Go Live` $\rightarrow$ `Transmitir Tela`, remover termos técnicos internos da UI principal)
-   - [x] Agrupar controles secundários no menu **Opções e Ajustes** e modal unificado **Configurações** (Aparência, Rede/Conexão, Guias `? Como funciona` sob demanda) + recolher cartão de **Convites** e barra de **Efeitos** por padrão
+   - [x] Agrupar controles secundários no menu **Opções e Ajustes** e modal unificado **Configurações** (Aparência, Rede/Conexão) + recolher cartão de **Convites** e barra de **Efeitos** por padrão
    - [x] Corrigir seletor CSS/JS de temas (`Escuro`, `AMOLED`, `Claro`) e densidade (`document.documentElement` + `document.body` + tokens de contraste)
    - [x] Registrar regra permanente de minimalismo visual e UI "soft" em [`AGENTS.md`](AGENTS.md) (Seção 6)
+6. **[Concluída] Polimento UX, PiP Independente, Salas Expansíveis & Identidade Windows (`v0.4.2`):**
+   - [x] Remover botões redundantes de estado atual em **Configurações** e remover aba **`Como funciona`**; simplificar botões de ajuda dos motores em **Transmitir Tela** para **`?`**
+   - [x] Corrigir botão **`×`** da barra lateral no desktop (`toggleSidebarPanel`) e botão **`☰ Salas`** para recolher/reabrir a barra lateral sem regressão no mobile
+   - [x] Renomear botão para **`PiP`** e desacoplar o PiP da própria transmissão da **`Prévia`** no palco (via proxy/canvas dedicado, funcionando com prévia pausada e sem encerrar transmissão/prévia ao fechar)
+   - [x] Adicionar seta expansível (`toggleRoomExpand`) em cada sala listando participantes em tempo real (`RoomSummary.peers` no backend + UI)
+   - [x] Embutir ícone multi-resolução e `VERSIONINFO` (`Drocsid`) no `drocsid.exe` via `build.rs` + `src/drocsid.rc`, servir `/favicon.ico`, `/icon.svg`, `/manifest.webmanifest` e atualizar [`installer/DrocsidSetup.cs`](installer/DrocsidSetup.cs)

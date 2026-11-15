@@ -110,6 +110,7 @@ let hooks = {
   toggleMobileSidebar: () => {},
   updateStageView: () => {},
   renegotiateAllPeers: async () => {},
+  closeActivePiP: async () => {},
 };
 
 export function registerScreenShareHooks(h) {
@@ -496,6 +497,9 @@ export async function stopScreenShare() {
   state.selfPreviewEnabled = false;
   state.localCaptureSurface = "";
   updateGoLiveButtonState(false);
+  if (state.pipActive && (state.pipStreamMode === "own_media" || state.pipStreamMode === "own_native")) {
+    await hooks.closeActivePiP();
+  }
 
   sendWs({ type: "stop_screen_share" });
   await hooks.renegotiateAllPeers();

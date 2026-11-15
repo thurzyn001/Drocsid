@@ -35,6 +35,12 @@ fn get_as_host(uri: &str, token: &str) -> Request<Body> {
 #[tokio::test]
 async fn index_and_whoami_are_public() {
     assert_eq!(status(get("/")).await, StatusCode::OK);
+    assert_eq!(status(get("/favicon.ico")).await, StatusCode::OK);
+    let manifest_res = app().oneshot(get("/manifest.webmanifest")).await.unwrap();
+    assert_eq!(manifest_res.status(), StatusCode::OK);
+    let manifest_bytes = http_body_util::BodyExt::collect(manifest_res.into_body()).await.unwrap().to_bytes();
+    let manifest_json: serde_json::Value = serde_json::from_slice(&manifest_bytes).unwrap();
+    assert_eq!(manifest_json["name"], "Drocsid");
     let res = app().oneshot(get("/api/whoami")).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
     let body = http_body_util::BodyExt::collect(res.into_body()).await.unwrap().to_bytes();

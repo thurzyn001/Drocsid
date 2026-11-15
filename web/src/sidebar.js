@@ -2,7 +2,7 @@
 
 import { state, escapeHtml, peerAvatarColor, sendWs } from "./state.js";
 import { isWebRtcP2pAudioReceiving, shouldTransmitVoiceRelay } from "./audio-codec.js";
-import { showToast, showConfirmModal, showPromptModal } from "./ui-feedback.js";
+import { showToast, showConfirmModal, showPromptModal, renderLucideIcons } from "./ui-feedback.js";
 
 let hooks = {
   toggleMobileSidebar: () => {},
@@ -30,23 +30,10 @@ export function applyAppearancePreferences() {
     document.body.dataset.density = density;
   }
 
-  const themeLabels = { dark: "Escuro", amoled: "AMOLED", light: "Claro" };
-  const btnTheme = document.getElementById("btnThemeToggle");
-  if (btnTheme) {
-    btnTheme.title = `Tema atual: ${themeLabels[theme]} (clique para alternar)`;
-    btnTheme.textContent = `🎨 Tema: ${themeLabels[theme]}`;
-    btnTheme.classList.toggle("active-green", theme !== "dark");
-  }
   document.querySelectorAll("[data-theme-choice]").forEach((el) => {
     el.classList.toggle("active", el.dataset.themeChoice === theme);
   });
 
-  const btnDensity = document.getElementById("btnDensityToggle");
-  if (btnDensity) {
-    btnDensity.title = `Densidade: ${density === "compact" ? "Compacta" : "Confortável"}`;
-    btnDensity.textContent = `↕️ Espaçamento: ${density === "compact" ? "Compacto" : "Confortável"}`;
-    btnDensity.classList.toggle("active-green", density === "compact");
-  }
   document.querySelectorAll("[data-density-choice]").forEach((el) => {
     el.classList.toggle("active", el.dataset.densityChoice === density);
   });
@@ -91,6 +78,17 @@ export function toggleShowTechDetails(force) {
   applyAppearancePreferences();
 }
 
+export function toggleRoomExpand(room, force) {
+  if (!room) return;
+  const open = typeof force === "boolean" ? force : !state.expandedRooms.has(room);
+  if (open) {
+    state.expandedRooms.add(room);
+  } else {
+    state.expandedRooms.delete(room);
+  }
+  renderRooms();
+}
+
 export function renderRooms() {
   const list = document.getElementById("roomList");
   if (!list) return;
@@ -102,7 +100,10 @@ export function renderRooms() {
       voice_count: 0,
       live_count: 0,
       locked: false,
+      peers: [],
     };
+    const isExpanded = state.expandedRooms?.has(room);
+    const roomPeers = Array.isArray(summary.peers) ? summary.peers : [];
     const badges = [];
     if (summary.locked) {
       badges.push(`<span class="room-badge-count" title="Sala trancada">🔒</span>`);
@@ -116,8 +117,23 @@ export function renderRooms() {
       badges.push(`<span class="room-badge-count" title="${summary.peer_count} na sala">${summary.peer_count}</span>`);
     }
 
+    const group = document.createElement("div");
+    group.className = "room-group";
+
     const row = document.createElement("div");
     row.className = "room-row";
+
+    const expandBtn = document.createElement("button");
+    expandBtn.type = "button";
+    expandBtn.className = "btn room-expand-btn" + (isExpanded ? " expanded" : "");
+    expandBtn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+    expandBtn.title = isExpanded ? `Recolher pessoas de #${room}` : `Ver quem está em #${room}`;
+    expandBtn.innerHTML = `<i data-lucide="${isExpanded ? "chevron-down" : "chevron-right"}"></i>`;
+    expandBtn.onclick = (e) => {
+      e.stopPropagation();
+      toggleRoomExpand(room);
+    };
+    row.appendChild(expandBtn);
 
     const btn = document.createElement("button");
     btn.className = "room-btn" + (room === state.currentRoom ? " active" : "");
@@ -154,8 +170,48 @@ export function renderRooms() {
       row.appendChild(hostActions);
     }
 
-    list.appendChild(row);
+    group.appendChild(row);
+
+    if (isExpanded) {
+      const membersWrap = document.createElement("div");
+      membersWrap.className = "room-members-sublist";
+      if (roomPeers.length === 0) {
+        const emptyRow = document.createElement("div");
+        emptyRow.className = "room-member-empty";
+        emptyRow.textContent = "Ninguém na sala";
+        membersWrap.appendChild(emptyRow);
+      } else {
+        for (const rp of roomPeers) {
+          const item = document.createElement("div");
+          item.className = "room-member-item";
+          const initials = (rp.username || "A").slice(0, 2).toUpperCase();
+          const statusTags = [];
+          if (rp.is_host) statusTags.push(`<span title="Anfitrião">👑</span>`);
+          if (rp.is_live) statusTags.push(`<span class="room-member-live">AO VIVO</span>`);
+          if (rp.in_voice) {
+            if (rp.server_muted || rp.self_mute) {
+              statusTags.push(`<span title="Mutado">🔇</span>`);
+            } else {
+              statusTags.push(`<span title="Na voz">🎙️</span>`);
+            }
+          }
+          if (rp.self_deaf) statusTags.push(`<span title="Sem áudio">🙉</span>`);
+          item.innerHTML = `
+            <span class="room-member-left">
+              <span class="room-member-dot">${escapeHtml(initials)}</span>
+              <span class="room-member-name">${escapeHtml(rp.username)}</span>
+            </span>
+            <span class="room-member-status">${statusTags.join("")}</span>
+          `;
+          membersWrap.appendChild(item);
+        }
+      }
+      group.appendChild(membersWrap);
+    }
+
+    list.appendChild(group);
   }
+  renderLucideIcons(list);
 }
 
 export function switchRoom(room, force = false) {

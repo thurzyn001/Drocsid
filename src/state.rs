@@ -14,7 +14,8 @@ use crate::{
     capture::{NativeCaptureSession, NativeCaptureTick},
     protocol::{
         encode_server_binary_frame, encode_server_binary_frame_v2, ChatEntry, PeerInfo,
-        RoomSummary, ScreenShareInfo, ScreenShareMode, ServerMessage, TurnServerConfig,
+        RoomPeerSummary, RoomSummary, ScreenShareInfo, ScreenShareMode, ServerMessage,
+        TurnServerConfig,
     },
     security::Secrets,
     tunnel::TunnelManager,
@@ -136,23 +137,40 @@ impl AppState {
                 let mut peer_count = 0usize;
                 let mut voice_count = 0usize;
                 let mut live_count = 0usize;
+                let mut room_peers = Vec::new();
                 for p in peers.values() {
                     if p.info.room == *name {
                         peer_count += 1;
                         if p.info.in_voice {
                             voice_count += 1;
                         }
-                        if p.info.screen_share.is_some() {
+                        let is_live = p.info.screen_share.is_some();
+                        if is_live {
                             live_count += 1;
                         }
+                        room_peers.push(RoomPeerSummary {
+                            username: p.info.username.clone(),
+                            is_host: p.info.is_host,
+                            in_voice: p.info.in_voice,
+                            self_mute: p.info.self_mute,
+                            self_deaf: p.info.self_deaf,
+                            server_muted: p.info.server_muted,
+                            is_live,
+                        });
                     }
                 }
+                room_peers.sort_by(|a, b| {
+                    b.is_host
+                        .cmp(&a.is_host)
+                        .then_with(|| a.username.to_lowercase().cmp(&b.username.to_lowercase()))
+                });
                 RoomSummary {
                     name: name.clone(),
                     peer_count,
                     voice_count,
                     live_count,
                     locked: locked.contains(name),
+                    peers: room_peers,
                 }
             })
             .collect();
@@ -914,6 +932,80 @@ mod tests {
         let cleared = state.unban_all().await;
         assert_eq!(cleared, 2);
         assert!(!state.is_banned(Some("198.51.100.7"), Some("cid-1")).await);
+    }
+
+    #[tokio::test]
+    async fn build_room_summaries_lista_participantes_ordenados() {
+        let state = AppState::new(3000, Secrets::from_parts("host", "key"));
+        let (tx1, _rx1) = mpsc::channel(4);
+        let (tx2, _rx2) = mpsc::channel(4);
+        let id1 = Uuid::new_v4();
+        let id2 = Uuid::new_v4();
+        {
+            let mut peers = state.peers.write().await;
+            peers.insert(
+                id1,
+                ConnectedPeer {
+                    info: PeerInfo {
+                        peer_id: id1,
+                        username: "Zeca".to_string(),
+                        room: "geral".to_string(),
+                        is_host: false,
+                        in_voice: true,
+                        self_mute: false,
+                        self_deaf: false,
+                        speaking: false,
+                        voice_relay: false,
+                        server_muted: false,
+                        screen_share: None,
+                        caps: Default::default(),
+                    },
+                    tx: tx1,
+                    native_capture_stop: None,
+                    sink_ready_seq: HashMap::new(),
+                    last_chat_ms: 0,
+                    last_sound_ms: 0,
+                    client_ip: None,
+                    client_id: None,
+                },
+            );
+            peers.insert(
+                id2,
+                ConnectedPeer {
+                    info: PeerInfo {
+                        peer_id: id2,
+                        username: "Anfitriao".to_string(),
+                        room: "geral".to_string(),
+                        is_host: true,
+                        in_voice: true,
+                        self_mute: true,
+                        self_deaf: false,
+                        speaking: false,
+                        voice_relay: false,
+                        server_muted: false,
+                        screen_share: None,
+                        caps: Default::default(),
+                    },
+                    tx: tx2,
+                    native_capture_stop: None,
+                    sink_ready_seq: HashMap::new(),
+                    last_chat_ms: 0,
+                    last_sound_ms: 0,
+                    client_ip: None,
+                    client_id: None,
+                },
+            );
+        }
+
+        let (_, summaries) = state.build_room_summaries().await;
+        let geral = summaries.iter().find(|r| r.name == "geral").unwrap();
+        assert_eq!(geral.peer_count, 2);
+        assert_eq!(geral.voice_count, 2);
+        assert_eq!(geral.peers.len(), 2);
+        assert_eq!(geral.peers[0].username, "Anfitriao");
+        assert!(geral.peers[0].is_host);
+        assert_eq!(geral.peers[1].username, "Zeca");
+        assert!(!geral.peers[1].self_mute);
     }
 }
 

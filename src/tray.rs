@@ -480,7 +480,31 @@ pub fn spawn_system_tray(
         };
         RegisterClassW(&wc);
 
-        let wnd_title = to_wide("Drocsid Tray");
+        let mut h_icon: HICON = LoadIconW(h_inst, 1usize as *const u16);
+        if h_icon.is_null() {
+            if let Some(local_dir) = std::env::var_os("LOCALAPPDATA") {
+                let ico_path = std::path::PathBuf::from(local_dir)
+                    .join("Programs")
+                    .join("Drocsid")
+                    .join("drocsid.ico");
+                if ico_path.exists() {
+                    let wpath = to_wide(&ico_path.to_string_lossy());
+                    h_icon = LoadImageW(
+                        null_mut(),
+                        wpath.as_ptr(),
+                        IMAGE_ICON,
+                        0,
+                        0,
+                        LR_LOADFROMFILE | LR_DEFAULTSIZE,
+                    );
+                }
+            }
+        }
+        if h_icon.is_null() {
+            h_icon = LoadIconW(null_mut(), IDI_APPLICATION);
+        }
+
+        let wnd_title = to_wide("Drocsid");
         let hwnd = CreateWindowExW(
             0,
             cls_name.as_ptr(),
@@ -497,28 +521,6 @@ pub fn spawn_system_tray(
         );
         if hwnd.is_null() {
             return;
-        }
-
-        let mut h_icon: HICON = null_mut();
-        if let Some(local_dir) = std::env::var_os("LOCALAPPDATA") {
-            let ico_path = std::path::PathBuf::from(local_dir)
-                .join("Programs")
-                .join("Drocsid")
-                .join("drocsid.ico");
-            if ico_path.exists() {
-                let wpath = to_wide(&ico_path.to_string_lossy());
-                h_icon = LoadImageW(
-                    null_mut(),
-                    wpath.as_ptr(),
-                    IMAGE_ICON,
-                    0,
-                    0,
-                    LR_LOADFROMFILE | LR_DEFAULTSIZE,
-                );
-            }
-        }
-        if h_icon.is_null() {
-            h_icon = LoadIconW(null_mut(), IDI_APPLICATION);
         }
 
         let mut nid: NOTIFYICONDATAW = std::mem::zeroed();

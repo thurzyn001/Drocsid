@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Drocsid</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%235865F2'/><text x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Segoe UI,sans-serif' font-weight='bold'>D</text></svg>" />
+  <meta name="theme-color" content="#5865F2" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="alternate icon" href="/favicon.ico" />
   <style>
 /* __DROCSID_INLINE_CSS__ */
   </style>
@@ -20,7 +23,7 @@
         <button class="btn icon-btn soft-icon-btn" onclick="openSettingsModal('appearance')" title="Configurações">
           <i data-lucide="settings"></i>
         </button>
-        <button class="btn sidebar-close-btn" style="padding: 3px 8px;" onclick="toggleMobileSidebar(false)" title="Fechar menu">
+        <button id="btnCloseSidebar" class="btn sidebar-close-btn" style="padding: 3px 8px;" onclick="toggleSidebarPanel(false)" title="Recolher barra lateral">
           <i data-lucide="x"></i>
         </button>
       </span>
@@ -108,9 +111,6 @@
             <button type="button" class="options-item" onclick="openSettingsModal('network')">
               <span>🌐</span><span>Rede e Conexão</span>
             </button>
-            <button type="button" class="options-item" onclick="openSettingsModal('guides')">
-              <span>💡</span><span>Como funcionam os motores</span>
-            </button>
             <button type="button" class="options-item" onclick="closeOptionsMenu(); toggleSoundboard()">
               <span>✨</span><span>Efeitos sonoros no chat</span>
             </button>
@@ -131,7 +131,7 @@
   <main id="mainArea" class="main-area">
     <header class="topbar">
       <div class="topbar-left">
-        <button class="btn mobile-menu-btn soft-btn" style="padding: 5px 9px;" onclick="toggleMobileSidebar(true)">☰ Salas</button>
+        <button id="btnToggleSidebarTop" class="btn mobile-menu-btn soft-btn" style="padding: 5px 9px;" onclick="toggleSidebarPanel()" title="Mostrar barra lateral">☰ Salas</button>
         <span class="room-title" id="currentRoomLabel">#geral</span>
         <span class="engine-pill" id="activeServerPill" style="display: none;">Local</span>
         <span class="version-mismatch-pill" id="versionMismatchBadge" style="display: none;"></span>
@@ -163,7 +163,7 @@
           <button id="btnGridMode" class="btn" style="padding: 4px 8px;" onclick="toggleGridMode()" title="Grade para até 4 telas"><i data-lucide="grid-2x2"></i> Grade</button>
           <button id="btnLaserMode" class="btn" style="padding: 4px 8px;" onclick="toggleLaserMode()" title="Apontador laser na tela"><i data-lucide="crosshair"></i> Laser</button>
           <button id="btnTheaterMode" class="btn" style="padding: 4px 8px;" onclick="toggleTheaterMode()" title="Expandir vídeo"><i data-lucide="clapperboard"></i> Teatro</button>
-          <button id="btnPiP" class="btn" style="padding: 4px 8px;" onclick="togglePiP()" title="Janela flutuante"><i data-lucide="picture-in-picture-2"></i> Flutuante</button>
+          <button id="btnPiP" class="btn" style="padding: 4px 8px;" onclick="togglePiP()" title="Picture-in-Picture (PiP)"><i data-lucide="picture-in-picture-2"></i> PiP</button>
           <button class="btn" style="padding: 4px 8px;" onclick="toggleStageFullscreen()"><i data-lucide="maximize"></i> Tela Cheia</button>
         </div>
       </div>
@@ -251,7 +251,7 @@
           <div id="modeWebRtcCard" class="mode-card selected" onclick="selectShareMode('web_rtc')">
             <div class="mode-card-head">
               <h4>⚡ Direto (P2P)</h4>
-              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('web_rtc', event)" title="Ver como este modo funciona">? Como funciona</button>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('web_rtc', event)" title="Ver como este modo funciona" aria-label="Ver como funciona o modo Direto">?</button>
             </div>
             <p>Menor atraso e áudio do computador; ideal para a maioria das chamadas.</p>
             <div id="modeHelpWebRtc" class="mode-help-box">
@@ -261,7 +261,7 @@
           <div id="modeRelayCard" class="mode-card" onclick="selectShareMode('universal_relay')">
             <div class="mode-card-head">
               <h4>🌐 Modo Compatível</h4>
-              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('universal_relay', event)" title="Ver como este modo funciona">? Como funciona</button>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('universal_relay', event)" title="Ver como este modo funciona" aria-label="Ver como funciona o Modo Compatível">?</button>
             </div>
             <p>Usa o túnel da sala quando redes restritas bloqueiam conexão direta.</p>
             <div id="modeHelpRelay" class="mode-help-box">
@@ -271,7 +271,7 @@
           <div id="modeNativeCard" class="mode-card" onclick="selectShareMode('native_host')">
             <div class="mode-card-head">
               <h4>🖥️ Captura do PC</h4>
-              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('native_host', event)" title="Ver como este modo funciona">? Como funciona</button>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('native_host', event)" title="Ver como este modo funciona" aria-label="Ver como funciona a Captura do PC">?</button>
             </div>
             <p>Captura direta do computador do anfitrião com alta estabilidade.</p>
             <div id="modeHelpNative" class="mode-help-box">
@@ -353,7 +353,7 @@
     </div>
   </div>
 
-  <!-- Modal de Configurações Unificado (Aparência, Rede & Guias Sob Demanda) -->
+  <!-- Modal de Configurações Unificado (Aparência e Rede) -->
   <div class="modal-backdrop" id="settingsModal">
     <div class="modal" style="width: 560px; max-width: 96vw;">
       <div class="modal-header">
@@ -363,7 +363,6 @@
       <div class="settings-tabs" role="tablist">
         <button type="button" class="settings-tab active" data-settings-tab="appearance" onclick="selectSettingsTab('appearance')">🎨 Aparência</button>
         <button type="button" class="settings-tab" data-settings-tab="network" onclick="selectSettingsTab('network')">🌐 Rede e Conexão</button>
-        <button type="button" class="settings-tab" data-settings-tab="guides" onclick="selectSettingsTab('guides')">💡 Como funciona</button>
       </div>
       <div class="modal-body">
         <!-- Aba Aparência -->
@@ -376,7 +375,6 @@
               <button type="button" class="btn choice-pill" data-theme-choice="amoled" onclick="setTheme('amoled')">🖤 AMOLED</button>
               <button type="button" class="btn choice-pill" data-theme-choice="light" onclick="setTheme('light')">☀️ Claro</button>
             </div>
-            <button id="btnThemeToggle" type="button" class="btn soft-btn" style="margin-top: 8px; width: fit-content;" onclick="toggleTheme()">🎨 Alternar próximo tema</button>
           </div>
 
           <div class="soft-card">
@@ -386,7 +384,6 @@
               <button type="button" class="btn choice-pill" data-density-choice="cozy" onclick="setDensity('cozy')">Confortável</button>
               <button type="button" class="btn choice-pill" data-density-choice="compact" onclick="setDensity('compact')">Compacto</button>
             </div>
-            <button id="btnDensityToggle" type="button" class="btn soft-btn" style="margin-top: 8px; width: fit-content;" onclick="toggleDensity()">↕️ Alternar espaçamento</button>
           </div>
 
           <div class="soft-card">
@@ -405,7 +402,7 @@
                 <div class="soft-card-title">Modo compatível para voz</div>
                 <p class="soft-card-desc">Por padrão o Drocsid usa conexão direta e só muda automaticamente se sua rede bloquear.</p>
               </div>
-              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('helpVoiceRelayCard')">? Como funciona</button>
+              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('helpVoiceRelayCard')" title="Ver explicação" aria-label="Ver explicação sobre rota de voz">?</button>
             </div>
             <button id="btnVoiceRelay" type="button" class="btn soft-btn" onclick="toggleForceVoiceRelay()">🌐 Rota de Voz: Automático</button>
             <div id="helpVoiceRelayCard" class="mode-help-box" style="margin-top: 8px;">
@@ -430,45 +427,6 @@
                 <p class="soft-card-desc">Escolha microfone, fone, redução de ruído e atalho de fala.</p>
               </div>
               <button type="button" class="btn soft-btn" onclick="closeSettingsModal(); openAudioSettingsModal()">Abrir</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Aba Como funciona -->
-        <div class="settings-panel" data-settings-panel="guides">
-          <p class="soft-card-desc" style="margin-bottom: 4px;">
-            Abra apenas os cartões que tiver curiosidade de entender:
-          </p>
-
-          <div class="soft-card">
-            <div class="soft-card-head">
-              <div class="soft-card-title">⚡ Direto vs 🌐 Modo Compatível vs 🖥️ Captura do PC</div>
-              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideEnginesBody')">Ver explicação</button>
-            </div>
-            <div id="guideEnginesBody" class="mode-help-box">
-              <strong>Direto (P2P):</strong> envia vídeo e som direto entre os computadores da sala, ideal para filmes e jogos com baixa latência.<br/>
-              <strong>Modo Compatível:</strong> passa os dados pelo túnel da sala — ótimo quando a operadora bloqueia conexões diretas.<br/>
-              <strong>Captura do PC:</strong> disponível para o anfitrião capturar a tela inteira direto do Windows com alta estabilidade.
-            </div>
-          </div>
-
-          <div class="soft-card">
-            <div class="soft-card-head">
-              <div class="soft-card-title">🎙️ Como funcionam Voz e Redução de Ruído</div>
-              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideAudioBody')">Ver explicação</button>
-            </div>
-            <div id="guideAudioBody" class="mode-help-box">
-              O filtro inteligente reduz ruídos constantes de fundo (teclado, ventilador) antes de enviar sua voz. Você também pode ativar a opção de apertar uma tecla para falar e ajustar o nível mínimo do microfone em <em>Opções → Áudio</em>.
-            </div>
-          </div>
-
-          <div class="soft-card">
-            <div class="soft-card-head">
-              <div class="soft-card-title">🔒 Convites e Segurança</div>
-              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideSecurityBody')">Ver explicação</button>
-            </div>
-            <div id="guideSecurityBody" class="mode-help-box">
-              Só quem tem o link completo ou código gerado por você consegue acessar suas salas. Você pode gerar uma nova chave a qualquer momento no cartão <strong>Convites</strong> para invalidar links antigos.
             </div>
           </div>
         </div>

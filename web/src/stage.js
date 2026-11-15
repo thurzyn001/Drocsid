@@ -33,6 +33,20 @@ export function toggleMobileSidebar(force) {
   bd.classList.toggle("open", open);
 }
 
+export function toggleSidebarPanel(force) {
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 900;
+  if (isMobile) {
+    toggleMobileSidebar(force);
+    return;
+  }
+  const sb = document.getElementById("sidebar");
+  if (!sb) return;
+  const shouldShow = typeof force === "boolean" ? force : Boolean(state.sidebarCollapsed);
+  state.sidebarCollapsed = !shouldShow;
+  sb.classList.toggle("collapsed", state.sidebarCollapsed);
+  document.body?.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
+}
+
 export function setLayoutViewMode(mode) {
   state.layoutViewMode = mode;
   const mainArea = document.getElementById("mainArea");
@@ -176,6 +190,27 @@ function getActiveStageCanvas(streamerId) {
   return state.watchedStreamerId === streamerId ? document.getElementById("stageCanvas") : null;
 }
 
+function getOwnNativePipCanvas(streamerId) {
+  if (
+    state.pipActive &&
+    state.pipNativeMode &&
+    streamerId === state.myPeerId &&
+    state.pipNativeCanvasEl
+  ) {
+    return state.pipNativeCanvasEl;
+  }
+  return null;
+}
+
+function drawFrameToCanvas(canvas, source, w, h) {
+  if (!canvas) return;
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  canvas.getContext("2d").drawImage(source, 0, 0, w, h);
+}
+
 function requestKeyframeThrottled(streamerId) {
   const now = Date.now();
   const last = state.lastKeyframeReqByPeer.get(streamerId) || 0;
@@ -218,7 +253,8 @@ function getOrCreateVideoDecoder(streamerId, codecId) {
         seqByTs.delete(frame.timestamp);
         try {
           const targetCanvas = getActiveStageCanvas(streamerId);
-          if (!targetCanvas) {
+          const pipCanvas = getOwnNativePipCanvas(streamerId);
+          if (!targetCanvas && !pipCanvas) {
             sendWs({
               type: "signal_video_output_sink_ready",
               streamer_id: streamerId,
@@ -226,14 +262,13 @@ function getOrCreateVideoDecoder(streamerId, codecId) {
             });
             return;
           }
-          const w = frame.displayWidth || frame.codedWidth || targetCanvas.width || 1280;
-          const h = frame.displayHeight || frame.codedHeight || targetCanvas.height || 720;
-          if (targetCanvas.width !== w || targetCanvas.height !== h) {
-            targetCanvas.width = w;
-            targetCanvas.height = h;
+          const refCanvas = targetCanvas || pipCanvas;
+          const w = frame.displayWidth || frame.codedWidth || refCanvas.width || 1280;
+          const h = frame.displayHeight || frame.codedHeight || refCanvas.height || 720;
+          drawFrameToCanvas(targetCanvas, frame, w, h);
+          if (pipCanvas && pipCanvas !== targetCanvas) {
+            drawFrameToCanvas(pipCanvas, frame, w, h);
           }
-          const ctx = targetCanvas.getContext("2d");
-          ctx.drawImage(frame, 0, 0, w, h);
           state.renderedFramesCount++;
           requestAnimationFrame(() => {
             sendWs({
@@ -273,7 +308,8 @@ export function handleBinaryVideoFrame(buffer) {
       updateStageView();
     }
     const targetCanvas = getActiveStageCanvas(parsed.streamerId);
-    if (!targetCanvas) {
+    const pipCanvas = getOwnNativePipCanvas(parsed.streamerId);
+    if (!targetCanvas && !pipCanvas) {
       sendWs({
         type: "signal_video_output_sink_ready",
         streamer_id: parsed.streamerId,
@@ -318,7 +354,8 @@ export function handleBinaryVideoFrame(buffer) {
     updateStageView();
   }
   const targetCanvas = getActiveStageCanvas(parsed.streamerId);
-  if (!targetCanvas) {
+  const pipCanvas = getOwnNativePipCanvas(parsed.streamerId);
+  if (!targetCanvas && !pipCanvas) {
     sendWs({
       type: "signal_video_output_sink_ready",
       streamer_id: parsed.streamerId,
@@ -332,13 +369,12 @@ export function handleBinaryVideoFrame(buffer) {
     createImageBitmap(blob).then((bitmap) => {
       try {
         const activeCanvas = getActiveStageCanvas(parsed.streamerId);
-        if (!activeCanvas) return;
-        if (activeCanvas.width !== parsed.width || activeCanvas.height !== parsed.height) {
-          activeCanvas.width = parsed.width;
-          activeCanvas.height = parsed.height;
+        const activePipCanvas = getOwnNativePipCanvas(parsed.streamerId);
+        if (!activeCanvas && !activePipCanvas) return;
+        drawFrameToCanvas(activeCanvas, bitmap, parsed.width, parsed.height);
+        if (activePipCanvas && activePipCanvas !== activeCanvas) {
+          drawFrameToCanvas(activePipCanvas, bitmap, parsed.width, parsed.height);
         }
-        const ctx = activeCanvas.getContext("2d");
-        ctx.drawImage(bitmap, 0, 0, parsed.width, parsed.height);
         state.renderedFramesCount++;
         requestAnimationFrame(() => {
           sendWs({
@@ -377,8 +413,9 @@ export function drawRelayFrame(streamerId, frameSeq, width, height, srcUrl, revo
   }
 
   const targetCanvas = getActiveStageCanvas(streamerId);
+  const pipCanvas = getOwnNativePipCanvas(streamerId);
 
-  if (!targetCanvas) {
+  if (!targetCanvas && !pipCanvas) {
     if (revokeBlob) URL.revokeObjectURL(srcUrl);
     sendWs({
       type: "signal_video_output_sink_ready",
@@ -388,16 +425,16 @@ export function drawRelayFrame(streamerId, frameSeq, width, height, srcUrl, revo
     return;
   }
 
-  const ctx = targetCanvas.getContext("2d");
   const img = new Image();
   img.onload = () => {
     if (revokeBlob) URL.revokeObjectURL(srcUrl);
-    if (!state.gridMode && state.watchedStreamerId !== streamerId) return;
-    if (targetCanvas.width !== width || targetCanvas.height !== height) {
-      targetCanvas.width = width;
-      targetCanvas.height = height;
+    const activeCanvas = getActiveStageCanvas(streamerId);
+    const activePipCanvas = getOwnNativePipCanvas(streamerId);
+    if (!activeCanvas && !activePipCanvas) return;
+    drawFrameToCanvas(activeCanvas, img, width, height);
+    if (activePipCanvas && activePipCanvas !== activeCanvas) {
+      drawFrameToCanvas(activePipCanvas, img, width, height);
     }
-    ctx.drawImage(img, 0, 0, width, height);
     state.renderedFramesCount++;
 
     requestAnimationFrame(() => {
@@ -870,36 +907,222 @@ export function toggleStageFullscreen() {
 function updatePipButtonUi() {
   const active = Boolean(
     state.pipActive ||
-    document.pictureInPictureElement ||
+    (typeof document !== "undefined" && document.pictureInPictureElement) ||
     (typeof window !== "undefined" && window.documentPictureInPicture?.window)
   );
   state.pipActive = active;
   document.getElementById("btnPiP")?.classList.toggle("active-green", active);
 }
 
+function cleanupPipProxyMedia() {
+  if (state.pipProxyVideoEl) {
+    if (state.pipOwnsProxyTracks && state.pipProxyVideoEl.srcObject) {
+      try {
+        state.pipProxyVideoEl.srcObject.getTracks().forEach(t => t.stop());
+      } catch (_) {}
+    }
+    try {
+      state.pipProxyVideoEl.srcObject = null;
+    } catch (_) {}
+  }
+  state.pipOwnsProxyTracks = false;
+  state.pipNativeMode = false;
+  state.pipStreamMode = null;
+}
+
+function ensurePipProxyVideoEl() {
+  if (state.pipProxyVideoEl) return state.pipProxyVideoEl;
+  const proxy = document.createElement("video");
+  proxy.muted = true;
+  proxy.playsInline = true;
+  proxy.setAttribute("playsinline", "");
+  proxy.autoplay = true;
+  proxy.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;";
+  proxy.addEventListener("enterpictureinpicture", () => {
+    state.pipActive = true;
+    updatePipButtonUi();
+  });
+  proxy.addEventListener("leavepictureinpicture", () => {
+    state.pipActive = false;
+    cleanupPipProxyMedia();
+    updatePipButtonUi();
+  });
+  document.body.appendChild(proxy);
+  state.pipProxyVideoEl = proxy;
+  return proxy;
+}
+
+function ensureOwnNativePipCanvas() {
+  if (!state.pipNativeCanvasEl) {
+    const c = document.createElement("canvas");
+    c.id = "pipNativeCanvas";
+    c.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;";
+    document.body.appendChild(c);
+    state.pipNativeCanvasEl = c;
+  }
+  const peerShare = state.peers.get(state.myPeerId)?.screen_share;
+  const w = peerShare?.width || 1280;
+  const h = peerShare?.height || 720;
+  if (state.pipNativeCanvasEl.width !== w || state.pipNativeCanvasEl.height !== h) {
+    state.pipNativeCanvasEl.width = w;
+    state.pipNativeCanvasEl.height = h;
+    const ctx = state.pipNativeCanvasEl.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#0b0c0e";
+      ctx.fillRect(0, 0, w, h);
+    }
+  }
+  return state.pipNativeCanvasEl;
+}
+
+async function ensureVideoMetadataLoaded(videoEl) {
+  if (!videoEl || videoEl.readyState >= 1) return;
+  await new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      videoEl.removeEventListener("loadedmetadata", finish);
+      resolve();
+    };
+    videoEl.addEventListener("loadedmetadata", finish, { once: true });
+    setTimeout(finish, 300);
+  });
+}
+
+async function openDocumentPipFromStream(stream, ownsTracks, streamMode, nativeMode, width = 480, height = 270) {
+  if (!window.documentPictureInPicture?.requestWindow) return false;
+  const pipWin = await window.documentPictureInPicture.requestWindow({
+    width: Math.min(640, Math.max(320, width)),
+    height: Math.min(360, Math.max(180, height)),
+  });
+  pipWin.document.body.style.cssText = "margin:0;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;";
+  const v = document.createElement("video");
+  v.muted = true;
+  v.autoplay = true;
+  v.playsInline = true;
+  v.style.cssText = "width:100%;height:100%;object-fit:contain;";
+  v.srcObject = stream;
+  v.play().catch(() => {});
+  pipWin.document.body.appendChild(v);
+  state.pipOwnsProxyTracks = ownsTracks;
+  state.pipNativeMode = nativeMode;
+  state.pipStreamMode = streamMode;
+  state.pipActive = true;
+  updatePipButtonUi();
+  pipWin.addEventListener("pagehide", () => {
+    state.pipActive = false;
+    if (ownsTracks && v.srcObject) {
+      try { v.srcObject.getTracks().forEach(t => t.stop()); } catch (_) {}
+    }
+    try { v.srcObject = null; } catch (_) {}
+    cleanupPipProxyMedia();
+    updatePipButtonUi();
+  });
+  return true;
+}
+
+async function openPipWithStream(stream, ownsTracks, streamMode, nativeMode, width = 480, height = 270) {
+  const proxy = ensurePipProxyVideoEl();
+  if (state.pipOwnsProxyTracks && proxy.srcObject && proxy.srcObject !== stream) {
+    try { proxy.srcObject.getTracks().forEach(t => t.stop()); } catch (_) {}
+  }
+  state.pipOwnsProxyTracks = ownsTracks;
+  state.pipNativeMode = nativeMode;
+  state.pipStreamMode = streamMode;
+  proxy.srcObject = stream;
+  try { await proxy.play(); } catch (_) {}
+  await ensureVideoMetadataLoaded(proxy);
+
+  if (typeof proxy.requestPictureInPicture === "function") {
+    try {
+      await proxy.requestPictureInPicture();
+      state.pipActive = true;
+      updatePipButtonUi();
+      return true;
+    } catch (err) {
+      if (await openDocumentPipFromStream(stream, ownsTracks, streamMode, nativeMode, width, height).catch(() => false)) {
+        return true;
+      }
+      cleanupPipProxyMedia();
+      updatePipButtonUi();
+      showToast("Não foi possível ativar PiP: " + (err?.message || "indisponível"), "warn");
+      return false;
+    }
+  }
+
+  if (await openDocumentPipFromStream(stream, ownsTracks, streamMode, nativeMode, width, height).catch(() => false)) {
+    return true;
+  }
+  cleanupPipProxyMedia();
+  updatePipButtonUi();
+  showToast("Picture-in-Picture não disponível neste navegador.", "warn");
+  return false;
+}
+
+export async function closeActivePiP() {
+  if (typeof document !== "undefined" && document.pictureInPictureElement) {
+    try { await document.exitPictureInPicture(); } catch (_) {}
+  }
+  if (typeof window !== "undefined" && window.documentPictureInPicture?.window) {
+    try { window.documentPictureInPicture.window.close(); } catch (_) {}
+  }
+  cleanupPipProxyMedia();
+  state.pipActive = false;
+  updatePipButtonUi();
+}
+
 export async function togglePiP() {
   const videoEl = document.getElementById("stageVideo");
   const canvasEl = document.getElementById("stageCanvas");
 
-  if (document.pictureInPictureElement) {
-    try { await document.exitPictureInPicture(); } catch (_) {}
-    state.pipActive = false;
-    updatePipButtonUi();
-    return;
-  }
-  if (typeof window !== "undefined" && window.documentPictureInPicture?.window) {
-    try { window.documentPictureInPicture.window.close(); } catch (_) {}
-    state.pipActive = false;
-    updatePipButtonUi();
+  if (
+    (typeof document !== "undefined" && document.pictureInPictureElement) ||
+    (typeof window !== "undefined" && window.documentPictureInPicture?.window) ||
+    state.pipActive
+  ) {
+    await closeActivePiP();
     return;
   }
 
-  if (
-    state.watchedStreamerId === state.myPeerId &&
-    isSelfCapturePaused()
-  ) {
-    showToast("Pré-visualização local pausada para evitar espelho infinito.", "info");
-    return;
+  const ownCaptureActive = isOwnScreenCaptureActive();
+  const targetingOwnCapture = Boolean(
+    ownCaptureActive &&
+    (!state.watchedStreamerId || state.watchedStreamerId === state.myPeerId || state.gridMode)
+  );
+
+  // Própria transmissão usa sempre stream/canvas auxiliar dedicado,
+  // funcionando mesmo com a Prévia do palco oculta e sem acoplar ao botão de Prévia.
+  if (targetingOwnCapture) {
+    if (state.localDisplayStream) {
+      const settings = state.localDisplayStream.getVideoTracks?.()[0]?.getSettings?.() || {};
+      await openPipWithStream(
+        state.localDisplayStream,
+        false,
+        "own_media",
+        false,
+        settings.width || 640,
+        settings.height || 360
+      );
+      return;
+    }
+    if (state.myScreenShareMode === "native_host") {
+      const nativeCanvas = ensureOwnNativePipCanvas();
+      if (typeof nativeCanvas.captureStream === "function") {
+        const stream = nativeCanvas.captureStream(30);
+        await openPipWithStream(
+          stream,
+          true,
+          "own_native",
+          true,
+          nativeCanvas.width,
+          nativeCanvas.height
+        );
+        return;
+      }
+      showToast("Picture-in-Picture não disponível neste navegador.", "warn");
+      return;
+    }
   }
 
   if (videoEl && videoEl.style.display !== "none" && videoEl.srcObject) {
@@ -910,10 +1133,19 @@ export async function togglePiP() {
     try {
       if (!videoEl.dataset.pipBound) {
         videoEl.dataset.pipBound = "1";
-        videoEl.addEventListener("enterpictureinpicture", () => { state.pipActive = true; updatePipButtonUi(); });
-        videoEl.addEventListener("leavepictureinpicture", () => { state.pipActive = false; updatePipButtonUi(); });
+        videoEl.addEventListener("enterpictureinpicture", () => {
+          state.pipStreamMode = "remote";
+          state.pipActive = true;
+          updatePipButtonUi();
+        });
+        videoEl.addEventListener("leavepictureinpicture", () => {
+          state.pipStreamMode = null;
+          state.pipActive = false;
+          updatePipButtonUi();
+        });
       }
       await videoEl.requestPictureInPicture();
+      state.pipStreamMode = "remote";
       state.pipActive = true;
       updatePipButtonUi();
     } catch (err) {
@@ -924,70 +1156,10 @@ export async function togglePiP() {
 
   if (canvasEl && canvasEl.style.display !== "none" && canvasEl.width > 0 && canvasEl.height > 0) {
     if (typeof canvasEl.captureStream === "function") {
-      try {
-        if (!state.pipProxyVideoEl) {
-          const proxy = document.createElement("video");
-          proxy.muted = true;
-          proxy.playsInline = true;
-          proxy.setAttribute("playsinline", "");
-          proxy.autoplay = true;
-          proxy.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;";
-          proxy.addEventListener("leavepictureinpicture", () => {
-            state.pipActive = false;
-            updatePipButtonUi();
-            try {
-              if (proxy.srcObject) proxy.srcObject.getTracks().forEach(t => t.stop());
-              proxy.srcObject = null;
-            } catch (_) {}
-          });
-          document.body.appendChild(proxy);
-          state.pipProxyVideoEl = proxy;
-        }
-        const stream = canvasEl.captureStream(30);
-        state.pipProxyVideoEl.srcObject = stream;
-        await state.pipProxyVideoEl.play();
-        if (typeof state.pipProxyVideoEl.requestPictureInPicture === "function") {
-          await state.pipProxyVideoEl.requestPictureInPicture();
-          state.pipActive = true;
-          updatePipButtonUi();
-          return;
-        }
-      } catch (err) {
-        if (!window.documentPictureInPicture?.requestWindow) {
-          showToast("PiP em transmissão Relay não suportado aqui: " + (err?.message || ""), "warn");
-          return;
-        }
-      }
+      const stream = canvasEl.captureStream(30);
+      await openPipWithStream(stream, true, "remote", false, canvasEl.width, canvasEl.height);
+      return;
     }
-
-    if (window.documentPictureInPicture?.requestWindow) {
-      try {
-        const pipWin = await window.documentPictureInPicture.requestWindow({
-          width: Math.min(640, Math.max(320, canvasEl.width || 480)),
-          height: Math.min(360, Math.max(180, canvasEl.height || 270)),
-        });
-        pipWin.document.body.style.cssText = "margin:0;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;";
-        const proxy = document.createElement("video");
-        proxy.muted = true;
-        proxy.autoplay = true;
-        proxy.playsInline = true;
-        proxy.style.cssText = "width:100%;height:100%;object-fit:contain;";
-        if (typeof canvasEl.captureStream === "function") {
-          proxy.srcObject = canvasEl.captureStream(30);
-          proxy.play().catch(() => {});
-        }
-        pipWin.document.body.appendChild(proxy);
-        state.pipActive = true;
-        updatePipButtonUi();
-        pipWin.addEventListener("pagehide", () => {
-          state.pipActive = false;
-          updatePipButtonUi();
-          try { if (proxy.srcObject) proxy.srcObject.getTracks().forEach(t => t.stop()); } catch (_) {}
-        });
-        return;
-      } catch (_) {}
-    }
-
     showToast("Picture-in-Picture não disponível neste navegador.", "warn");
     return;
   }

@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Drocsid</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%235865F2'/><text x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Segoe UI,sans-serif' font-weight='bold'>D</text></svg>" />
+  <meta name="theme-color" content="#5865F2" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="alternate icon" href="/favicon.ico" />
   <style>
 /* web/src/styles/main.css */
 :root {
@@ -62,6 +65,16 @@ body {
   flex-direction: column;
   border-right: 1px solid var(--border);
   flex-shrink: 0;
+  transition: width 0.18s ease, min-width 0.18s ease;
+}
+.sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+  overflow: hidden;
+}
+.sidebar.collapsed > * {
+  visibility: hidden;
 }
 .server-header {
   height: 52px;
@@ -678,16 +691,26 @@ body {
   border: 1px solid var(--border);
   color: var(--text-muted);
   border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 10.5px;
-  font-weight: 600;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
 }
 .help-pill-btn:hover {
   background: var(--soft-btn-hover);
   color: var(--text-header);
+  border-color: var(--brand);
 }
 .mode-help-box {
   display: none;
@@ -1327,6 +1350,26 @@ body[data-density=compact] .peer-item {
   justify-content: center;
   gap: 5px;
 }
+.btn.mobile-menu-btn {
+  display: none;
+}
+body.sidebar-collapsed .btn.mobile-menu-btn {
+  display: inline-flex;
+}
+@media (max-width: 900px) {
+  .sidebar.collapsed {
+    width: min(86vw, 315px);
+    overflow: visible;
+    border-right: 1px solid var(--border);
+  }
+  .sidebar.collapsed > * {
+    visibility: visible;
+  }
+  .btn.mobile-menu-btn,
+  .btn.sidebar-close-btn {
+    display: inline-flex;
+  }
+}
 .version-mismatch-pill {
   font-size: 11px;
   background: rgba(250, 166, 26, 0.18);
@@ -1785,14 +1828,101 @@ body[data-density=compact] .peer-item {
   border-radius: 4px;
   border: 1px solid var(--border);
 }
+.room-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 2px;
+}
 .room-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+}
+.room-expand-btn {
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+.room-expand-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-header);
+}
+.room-expand-btn svg.lucide {
+  width: 13px;
+  height: 13px;
 }
 .room-row .room-btn {
   flex: 1;
   min-width: 0;
+  margin-bottom: 0;
+}
+.room-members-sublist {
+  margin: 2px 0 4px 22px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.room-member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--text-normal);
+  background: var(--card-soft-bg);
+}
+.room-member-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.room-member-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.room-member-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.room-member-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.room-member-live {
+  font-size: 9.5px;
+  font-weight: 700;
+  background: var(--red);
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 999px;
+}
+.room-member-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 3px 6px;
 }
 .room-host-actions {
   display: flex;
@@ -1852,7 +1982,7 @@ body[data-density=compact] .peer-item {
         <button class="btn icon-btn soft-icon-btn" onclick="openSettingsModal('appearance')" title="Configurações">
           <i data-lucide="settings"></i>
         </button>
-        <button class="btn sidebar-close-btn" style="padding: 3px 8px;" onclick="toggleMobileSidebar(false)" title="Fechar menu">
+        <button id="btnCloseSidebar" class="btn sidebar-close-btn" style="padding: 3px 8px;" onclick="toggleSidebarPanel(false)" title="Recolher barra lateral">
           <i data-lucide="x"></i>
         </button>
       </span>
@@ -1940,9 +2070,6 @@ body[data-density=compact] .peer-item {
             <button type="button" class="options-item" onclick="openSettingsModal('network')">
               <span>🌐</span><span>Rede e Conexão</span>
             </button>
-            <button type="button" class="options-item" onclick="openSettingsModal('guides')">
-              <span>💡</span><span>Como funcionam os motores</span>
-            </button>
             <button type="button" class="options-item" onclick="closeOptionsMenu(); toggleSoundboard()">
               <span>✨</span><span>Efeitos sonoros no chat</span>
             </button>
@@ -1963,7 +2090,7 @@ body[data-density=compact] .peer-item {
   <main id="mainArea" class="main-area">
     <header class="topbar">
       <div class="topbar-left">
-        <button class="btn mobile-menu-btn soft-btn" style="padding: 5px 9px;" onclick="toggleMobileSidebar(true)">☰ Salas</button>
+        <button id="btnToggleSidebarTop" class="btn mobile-menu-btn soft-btn" style="padding: 5px 9px;" onclick="toggleSidebarPanel()" title="Mostrar barra lateral">☰ Salas</button>
         <span class="room-title" id="currentRoomLabel">#geral</span>
         <span class="engine-pill" id="activeServerPill" style="display: none;">Local</span>
         <span class="version-mismatch-pill" id="versionMismatchBadge" style="display: none;"></span>
@@ -1995,7 +2122,7 @@ body[data-density=compact] .peer-item {
           <button id="btnGridMode" class="btn" style="padding: 4px 8px;" onclick="toggleGridMode()" title="Grade para até 4 telas"><i data-lucide="grid-2x2"></i> Grade</button>
           <button id="btnLaserMode" class="btn" style="padding: 4px 8px;" onclick="toggleLaserMode()" title="Apontador laser na tela"><i data-lucide="crosshair"></i> Laser</button>
           <button id="btnTheaterMode" class="btn" style="padding: 4px 8px;" onclick="toggleTheaterMode()" title="Expandir vídeo"><i data-lucide="clapperboard"></i> Teatro</button>
-          <button id="btnPiP" class="btn" style="padding: 4px 8px;" onclick="togglePiP()" title="Janela flutuante"><i data-lucide="picture-in-picture-2"></i> Flutuante</button>
+          <button id="btnPiP" class="btn" style="padding: 4px 8px;" onclick="togglePiP()" title="Picture-in-Picture (PiP)"><i data-lucide="picture-in-picture-2"></i> PiP</button>
           <button class="btn" style="padding: 4px 8px;" onclick="toggleStageFullscreen()"><i data-lucide="maximize"></i> Tela Cheia</button>
         </div>
       </div>
@@ -2083,7 +2210,7 @@ body[data-density=compact] .peer-item {
           <div id="modeWebRtcCard" class="mode-card selected" onclick="selectShareMode('web_rtc')">
             <div class="mode-card-head">
               <h4>⚡ Direto (P2P)</h4>
-              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('web_rtc', event)" title="Ver como este modo funciona">? Como funciona</button>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('web_rtc', event)" title="Ver como este modo funciona" aria-label="Ver como funciona o modo Direto">?</button>
             </div>
             <p>Menor atraso e áudio do computador; ideal para a maioria das chamadas.</p>
             <div id="modeHelpWebRtc" class="mode-help-box">
@@ -2093,7 +2220,7 @@ body[data-density=compact] .peer-item {
           <div id="modeRelayCard" class="mode-card" onclick="selectShareMode('universal_relay')">
             <div class="mode-card-head">
               <h4>🌐 Modo Compatível</h4>
-              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('universal_relay', event)" title="Ver como este modo funciona">? Como funciona</button>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('universal_relay', event)" title="Ver como este modo funciona" aria-label="Ver como funciona o Modo Compatível">?</button>
             </div>
             <p>Usa o túnel da sala quando redes restritas bloqueiam conexão direta.</p>
             <div id="modeHelpRelay" class="mode-help-box">
@@ -2103,7 +2230,7 @@ body[data-density=compact] .peer-item {
           <div id="modeNativeCard" class="mode-card" onclick="selectShareMode('native_host')">
             <div class="mode-card-head">
               <h4>🖥️ Captura do PC</h4>
-              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('native_host', event)" title="Ver como este modo funciona">? Como funciona</button>
+              <button type="button" class="help-pill-btn" onclick="toggleEngineHelp('native_host', event)" title="Ver como este modo funciona" aria-label="Ver como funciona a Captura do PC">?</button>
             </div>
             <p>Captura direta do computador do anfitrião com alta estabilidade.</p>
             <div id="modeHelpNative" class="mode-help-box">
@@ -2185,7 +2312,7 @@ body[data-density=compact] .peer-item {
     </div>
   </div>
 
-  <!-- Modal de Configurações Unificado (Aparência, Rede & Guias Sob Demanda) -->
+  <!-- Modal de Configurações Unificado (Aparência e Rede) -->
   <div class="modal-backdrop" id="settingsModal">
     <div class="modal" style="width: 560px; max-width: 96vw;">
       <div class="modal-header">
@@ -2195,7 +2322,6 @@ body[data-density=compact] .peer-item {
       <div class="settings-tabs" role="tablist">
         <button type="button" class="settings-tab active" data-settings-tab="appearance" onclick="selectSettingsTab('appearance')">🎨 Aparência</button>
         <button type="button" class="settings-tab" data-settings-tab="network" onclick="selectSettingsTab('network')">🌐 Rede e Conexão</button>
-        <button type="button" class="settings-tab" data-settings-tab="guides" onclick="selectSettingsTab('guides')">💡 Como funciona</button>
       </div>
       <div class="modal-body">
         <!-- Aba Aparência -->
@@ -2208,7 +2334,6 @@ body[data-density=compact] .peer-item {
               <button type="button" class="btn choice-pill" data-theme-choice="amoled" onclick="setTheme('amoled')">🖤 AMOLED</button>
               <button type="button" class="btn choice-pill" data-theme-choice="light" onclick="setTheme('light')">☀️ Claro</button>
             </div>
-            <button id="btnThemeToggle" type="button" class="btn soft-btn" style="margin-top: 8px; width: fit-content;" onclick="toggleTheme()">🎨 Alternar próximo tema</button>
           </div>
 
           <div class="soft-card">
@@ -2218,7 +2343,6 @@ body[data-density=compact] .peer-item {
               <button type="button" class="btn choice-pill" data-density-choice="cozy" onclick="setDensity('cozy')">Confortável</button>
               <button type="button" class="btn choice-pill" data-density-choice="compact" onclick="setDensity('compact')">Compacto</button>
             </div>
-            <button id="btnDensityToggle" type="button" class="btn soft-btn" style="margin-top: 8px; width: fit-content;" onclick="toggleDensity()">↕️ Alternar espaçamento</button>
           </div>
 
           <div class="soft-card">
@@ -2237,7 +2361,7 @@ body[data-density=compact] .peer-item {
                 <div class="soft-card-title">Modo compatível para voz</div>
                 <p class="soft-card-desc">Por padrão o Drocsid usa conexão direta e só muda automaticamente se sua rede bloquear.</p>
               </div>
-              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('helpVoiceRelayCard')">? Como funciona</button>
+              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('helpVoiceRelayCard')" title="Ver explicação" aria-label="Ver explicação sobre rota de voz">?</button>
             </div>
             <button id="btnVoiceRelay" type="button" class="btn soft-btn" onclick="toggleForceVoiceRelay()">🌐 Rota de Voz: Automático</button>
             <div id="helpVoiceRelayCard" class="mode-help-box" style="margin-top: 8px;">
@@ -2262,45 +2386,6 @@ body[data-density=compact] .peer-item {
                 <p class="soft-card-desc">Escolha microfone, fone, redução de ruído e atalho de fala.</p>
               </div>
               <button type="button" class="btn soft-btn" onclick="closeSettingsModal(); openAudioSettingsModal()">Abrir</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Aba Como funciona -->
-        <div class="settings-panel" data-settings-panel="guides">
-          <p class="soft-card-desc" style="margin-bottom: 4px;">
-            Abra apenas os cartões que tiver curiosidade de entender:
-          </p>
-
-          <div class="soft-card">
-            <div class="soft-card-head">
-              <div class="soft-card-title">⚡ Direto vs 🌐 Modo Compatível vs 🖥️ Captura do PC</div>
-              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideEnginesBody')">Ver explicação</button>
-            </div>
-            <div id="guideEnginesBody" class="mode-help-box">
-              <strong>Direto (P2P):</strong> envia vídeo e som direto entre os computadores da sala, ideal para filmes e jogos com baixa latência.<br/>
-              <strong>Modo Compatível:</strong> passa os dados pelo túnel da sala — ótimo quando a operadora bloqueia conexões diretas.<br/>
-              <strong>Captura do PC:</strong> disponível para o anfitrião capturar a tela inteira direto do Windows com alta estabilidade.
-            </div>
-          </div>
-
-          <div class="soft-card">
-            <div class="soft-card-head">
-              <div class="soft-card-title">🎙️ Como funcionam Voz e Redução de Ruído</div>
-              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideAudioBody')">Ver explicação</button>
-            </div>
-            <div id="guideAudioBody" class="mode-help-box">
-              O filtro inteligente reduz ruídos constantes de fundo (teclado, ventilador) antes de enviar sua voz. Você também pode ativar a opção de apertar uma tecla para falar e ajustar o nível mínimo do microfone em <em>Opções → Áudio</em>.
-            </div>
-          </div>
-
-          <div class="soft-card">
-            <div class="soft-card-head">
-              <div class="soft-card-title">🔒 Convites e Segurança</div>
-              <button type="button" class="help-pill-btn" onclick="toggleInfoAccordion('guideSecurityBody')">Ver explicação</button>
-            </div>
-            <div id="guideSecurityBody" class="mode-help-box">
-              Só quem tem o link completo ou código gerado por você consegue acessar suas salas. Você pode gerar uma nova chave a qualquer momento no cartão <strong>Convites</strong> para invalidar links antigos.
             </div>
           </div>
         </div>
@@ -2532,12 +2617,18 @@ body[data-density=compact] .peer-item {
     currentRoom: "geral",
     knownRooms: ["geral", "jogos", "cinema-tela"],
     roomSummaries: /* @__PURE__ */ new Map(),
+    expandedRooms: /* @__PURE__ */ new Set(),
+    sidebarCollapsed: false,
     pendingJoinApprovals: [],
     peers: /* @__PURE__ */ new Map(),
     serverVersion: null,
     sharedTurnConfig: null,
     pinnedGridPeerId: null,
     pipProxyVideoEl: null,
+    pipOwnsProxyTracks: false,
+    pipNativeCanvasEl: null,
+    pipNativeMode: false,
+    pipStreamMode: null,
     pipActive: false,
     replyingTo: null,
     editingMessageId: null,
@@ -4458,6 +4549,9 @@ body[data-density=compact] .peer-item {
   // node_modules/lucide/dist/esm/icons/chevron-down.mjs
   var ChevronDown = [["path", { d: "m6 9 6 6 6-6" }]];
 
+  // node_modules/lucide/dist/esm/icons/chevron-right.mjs
+  var ChevronRight = [["path", { d: "m9 18 6-6-6-6" }]];
+
   // node_modules/lucide/dist/esm/icons/circle-question-mark.mjs
   var CircleQuestionMark = [
     ["circle", { cx: "12", cy: "12", r: "10" }],
@@ -4800,6 +4894,7 @@ body[data-density=compact] .peer-item {
     Eye,
     SlidersHorizontal,
     ChevronDown,
+    ChevronRight,
     HelpCircle: CircleQuestionMark,
     Sparkles,
     Power,
@@ -5087,7 +5182,7 @@ body[data-density=compact] .peer-item {
     if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
   }
   function selectSettingsTab(tab = "appearance") {
-    const validTabs = ["appearance", "network", "guides"];
+    const validTabs = ["appearance", "network"];
     const chosen = validTabs.includes(tab) ? tab : "appearance";
     document.querySelectorAll("[data-settings-tab]").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.settingsTab === chosen);
@@ -6110,22 +6205,9 @@ Link: ${st2.invite_link}`;
       document.body.dataset.theme = theme;
       document.body.dataset.density = density;
     }
-    const themeLabels = { dark: "Escuro", amoled: "AMOLED", light: "Claro" };
-    const btnTheme = document.getElementById("btnThemeToggle");
-    if (btnTheme) {
-      btnTheme.title = `Tema atual: ${themeLabels[theme]} (clique para alternar)`;
-      btnTheme.textContent = `🎨 Tema: ${themeLabels[theme]}`;
-      btnTheme.classList.toggle("active-green", theme !== "dark");
-    }
     document.querySelectorAll("[data-theme-choice]").forEach((el) => {
       el.classList.toggle("active", el.dataset.themeChoice === theme);
     });
-    const btnDensity = document.getElementById("btnDensityToggle");
-    if (btnDensity) {
-      btnDensity.title = `Densidade: ${density === "compact" ? "Compacta" : "Confortável"}`;
-      btnDensity.textContent = `↕️ Espaçamento: ${density === "compact" ? "Compacto" : "Confortável"}`;
-      btnDensity.classList.toggle("active-green", density === "compact");
-    }
     document.querySelectorAll("[data-density-choice]").forEach((el) => {
       el.classList.toggle("active", el.dataset.densityChoice === density);
     });
@@ -6172,6 +6254,16 @@ Link: ${st2.invite_link}`;
     }
     applyAppearancePreferences();
   }
+  function toggleRoomExpand(room, force) {
+    if (!room) return;
+    const open = typeof force === "boolean" ? force : !state.expandedRooms.has(room);
+    if (open) {
+      state.expandedRooms.add(room);
+    } else {
+      state.expandedRooms.delete(room);
+    }
+    renderRooms();
+  }
   function renderRooms() {
     const list = document.getElementById("roomList");
     if (!list) return;
@@ -6182,8 +6274,11 @@ Link: ${st2.invite_link}`;
         peer_count: 0,
         voice_count: 0,
         live_count: 0,
-        locked: false
+        locked: false,
+        peers: []
       };
+      const isExpanded = state.expandedRooms?.has(room);
+      const roomPeers = Array.isArray(summary.peers) ? summary.peers : [];
       const badges = [];
       if (summary.locked) {
         badges.push(`<span class="room-badge-count" title="Sala trancada">🔒</span>`);
@@ -6196,8 +6291,21 @@ Link: ${st2.invite_link}`;
       } else if (summary.peer_count > 0) {
         badges.push(`<span class="room-badge-count" title="${summary.peer_count} na sala">${summary.peer_count}</span>`);
       }
+      const group = document.createElement("div");
+      group.className = "room-group";
       const row = document.createElement("div");
       row.className = "room-row";
+      const expandBtn = document.createElement("button");
+      expandBtn.type = "button";
+      expandBtn.className = "btn room-expand-btn" + (isExpanded ? " expanded" : "");
+      expandBtn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+      expandBtn.title = isExpanded ? `Recolher pessoas de #${room}` : `Ver quem está em #${room}`;
+      expandBtn.innerHTML = `<i data-lucide="${isExpanded ? "chevron-down" : "chevron-right"}"></i>`;
+      expandBtn.onclick = (e) => {
+        e.stopPropagation();
+        toggleRoomExpand(room);
+      };
+      row.appendChild(expandBtn);
       const btn = document.createElement("button");
       btn.className = "room-btn" + (room === state.currentRoom ? " active" : "");
       btn.innerHTML = `<span class="room-name-wrap"><span>🔊</span> <span>#${escapeHtml(room)}</span></span><span class="room-badges">${badges.join("")}</span>`;
@@ -6228,8 +6336,46 @@ Link: ${st2.invite_link}`;
         hostActions.appendChild(delBtn);
         row.appendChild(hostActions);
       }
-      list.appendChild(row);
+      group.appendChild(row);
+      if (isExpanded) {
+        const membersWrap = document.createElement("div");
+        membersWrap.className = "room-members-sublist";
+        if (roomPeers.length === 0) {
+          const emptyRow = document.createElement("div");
+          emptyRow.className = "room-member-empty";
+          emptyRow.textContent = "Ninguém na sala";
+          membersWrap.appendChild(emptyRow);
+        } else {
+          for (const rp of roomPeers) {
+            const item = document.createElement("div");
+            item.className = "room-member-item";
+            const initials = (rp.username || "A").slice(0, 2).toUpperCase();
+            const statusTags = [];
+            if (rp.is_host) statusTags.push(`<span title="Anfitrião">👑</span>`);
+            if (rp.is_live) statusTags.push(`<span class="room-member-live">AO VIVO</span>`);
+            if (rp.in_voice) {
+              if (rp.server_muted || rp.self_mute) {
+                statusTags.push(`<span title="Mutado">🔇</span>`);
+              } else {
+                statusTags.push(`<span title="Na voz">🎙️</span>`);
+              }
+            }
+            if (rp.self_deaf) statusTags.push(`<span title="Sem áudio">🙉</span>`);
+            item.innerHTML = `
+            <span class="room-member-left">
+              <span class="room-member-dot">${escapeHtml(initials)}</span>
+              <span class="room-member-name">${escapeHtml(rp.username)}</span>
+            </span>
+            <span class="room-member-status">${statusTags.join("")}</span>
+          `;
+            membersWrap.appendChild(item);
+          }
+        }
+        group.appendChild(membersWrap);
+      }
+      list.appendChild(group);
     }
+    renderLucideIcons(list);
   }
   function switchRoom(room, force = false) {
     if (room === state.currentRoom && !force) {
@@ -11758,6 +11904,19 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     sb.classList.toggle("open", open);
     bd.classList.toggle("open", open);
   }
+  function toggleSidebarPanel(force) {
+    const isMobile = typeof window !== "undefined" && window.innerWidth <= 900;
+    if (isMobile) {
+      toggleMobileSidebar(force);
+      return;
+    }
+    const sb = document.getElementById("sidebar");
+    if (!sb) return;
+    const shouldShow = typeof force === "boolean" ? force : Boolean(state.sidebarCollapsed);
+    state.sidebarCollapsed = !shouldShow;
+    sb.classList.toggle("collapsed", state.sidebarCollapsed);
+    document.body?.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
+  }
   function setLayoutViewMode(mode) {
     state.layoutViewMode = mode;
     const mainArea = document.getElementById("mainArea");
@@ -11887,6 +12046,20 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     }
     return state.watchedStreamerId === streamerId ? document.getElementById("stageCanvas") : null;
   }
+  function getOwnNativePipCanvas(streamerId) {
+    if (state.pipActive && state.pipNativeMode && streamerId === state.myPeerId && state.pipNativeCanvasEl) {
+      return state.pipNativeCanvasEl;
+    }
+    return null;
+  }
+  function drawFrameToCanvas(canvas, source, w2, h2) {
+    if (!canvas) return;
+    if (canvas.width !== w2 || canvas.height !== h2) {
+      canvas.width = w2;
+      canvas.height = h2;
+    }
+    canvas.getContext("2d").drawImage(source, 0, 0, w2, h2);
+  }
   function requestKeyframeThrottled(streamerId) {
     const now = Date.now();
     const last = state.lastKeyframeReqByPeer.get(streamerId) || 0;
@@ -11927,7 +12100,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
           seqByTs.delete(frame.timestamp);
           try {
             const targetCanvas = getActiveStageCanvas(streamerId);
-            if (!targetCanvas) {
+            const pipCanvas = getOwnNativePipCanvas(streamerId);
+            if (!targetCanvas && !pipCanvas) {
               sendWs({
                 type: "signal_video_output_sink_ready",
                 streamer_id: streamerId,
@@ -11935,14 +12109,13 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
               });
               return;
             }
-            const w2 = frame.displayWidth || frame.codedWidth || targetCanvas.width || 1280;
-            const h2 = frame.displayHeight || frame.codedHeight || targetCanvas.height || 720;
-            if (targetCanvas.width !== w2 || targetCanvas.height !== h2) {
-              targetCanvas.width = w2;
-              targetCanvas.height = h2;
+            const refCanvas = targetCanvas || pipCanvas;
+            const w2 = frame.displayWidth || frame.codedWidth || refCanvas.width || 1280;
+            const h2 = frame.displayHeight || frame.codedHeight || refCanvas.height || 720;
+            drawFrameToCanvas(targetCanvas, frame, w2, h2);
+            if (pipCanvas && pipCanvas !== targetCanvas) {
+              drawFrameToCanvas(pipCanvas, frame, w2, h2);
             }
-            const ctx = targetCanvas.getContext("2d");
-            ctx.drawImage(frame, 0, 0, w2, h2);
             state.renderedFramesCount++;
             requestAnimationFrame(() => {
               sendWs({
@@ -11984,7 +12157,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
         updateStageView();
       }
       const targetCanvas2 = getActiveStageCanvas(parsed2.streamerId);
-      if (!targetCanvas2) {
+      const pipCanvas2 = getOwnNativePipCanvas(parsed2.streamerId);
+      if (!targetCanvas2 && !pipCanvas2) {
         sendWs({
           type: "signal_video_output_sink_ready",
           streamer_id: parsed2.streamerId,
@@ -12028,7 +12202,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
       updateStageView();
     }
     const targetCanvas = getActiveStageCanvas(parsed.streamerId);
-    if (!targetCanvas) {
+    const pipCanvas = getOwnNativePipCanvas(parsed.streamerId);
+    if (!targetCanvas && !pipCanvas) {
       sendWs({
         type: "signal_video_output_sink_ready",
         streamer_id: parsed.streamerId,
@@ -12041,13 +12216,12 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
       createImageBitmap(blob).then((bitmap) => {
         try {
           const activeCanvas = getActiveStageCanvas(parsed.streamerId);
-          if (!activeCanvas) return;
-          if (activeCanvas.width !== parsed.width || activeCanvas.height !== parsed.height) {
-            activeCanvas.width = parsed.width;
-            activeCanvas.height = parsed.height;
+          const activePipCanvas = getOwnNativePipCanvas(parsed.streamerId);
+          if (!activeCanvas && !activePipCanvas) return;
+          drawFrameToCanvas(activeCanvas, bitmap, parsed.width, parsed.height);
+          if (activePipCanvas && activePipCanvas !== activeCanvas) {
+            drawFrameToCanvas(activePipCanvas, bitmap, parsed.width, parsed.height);
           }
-          const ctx = activeCanvas.getContext("2d");
-          ctx.drawImage(bitmap, 0, 0, parsed.width, parsed.height);
           state.renderedFramesCount++;
           requestAnimationFrame(() => {
             sendWs({
@@ -12086,7 +12260,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
       updateStageView();
     }
     const targetCanvas = getActiveStageCanvas(streamerId);
-    if (!targetCanvas) {
+    const pipCanvas = getOwnNativePipCanvas(streamerId);
+    if (!targetCanvas && !pipCanvas) {
       if (revokeBlob) URL.revokeObjectURL(srcUrl);
       sendWs({
         type: "signal_video_output_sink_ready",
@@ -12095,16 +12270,16 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
       });
       return;
     }
-    const ctx = targetCanvas.getContext("2d");
     const img = new Image();
     img.onload = () => {
       if (revokeBlob) URL.revokeObjectURL(srcUrl);
-      if (!state.gridMode && state.watchedStreamerId !== streamerId) return;
-      if (targetCanvas.width !== width || targetCanvas.height !== height) {
-        targetCanvas.width = width;
-        targetCanvas.height = height;
+      const activeCanvas = getActiveStageCanvas(streamerId);
+      const activePipCanvas = getOwnNativePipCanvas(streamerId);
+      if (!activeCanvas && !activePipCanvas) return;
+      drawFrameToCanvas(activeCanvas, img, width, height);
+      if (activePipCanvas && activePipCanvas !== activeCanvas) {
+        drawFrameToCanvas(activePipCanvas, img, width, height);
       }
-      ctx.drawImage(img, 0, 0, width, height);
       state.renderedFramesCount++;
       requestAnimationFrame(() => {
         sendWs({
@@ -12538,35 +12713,222 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
   }
   function updatePipButtonUi() {
     const active = Boolean(
-      state.pipActive || document.pictureInPictureElement || typeof window !== "undefined" && window.documentPictureInPicture?.window
+      state.pipActive || typeof document !== "undefined" && document.pictureInPictureElement || typeof window !== "undefined" && window.documentPictureInPicture?.window
     );
     state.pipActive = active;
     document.getElementById("btnPiP")?.classList.toggle("active-green", active);
   }
-  async function togglePiP() {
-    const videoEl = document.getElementById("stageVideo");
-    const canvasEl = document.getElementById("stageCanvas");
-    if (document.pictureInPictureElement) {
+  function cleanupPipProxyMedia() {
+    if (state.pipProxyVideoEl) {
+      if (state.pipOwnsProxyTracks && state.pipProxyVideoEl.srcObject) {
+        try {
+          state.pipProxyVideoEl.srcObject.getTracks().forEach((t) => t.stop());
+        } catch (_2) {
+        }
+      }
+      try {
+        state.pipProxyVideoEl.srcObject = null;
+      } catch (_2) {
+      }
+    }
+    state.pipOwnsProxyTracks = false;
+    state.pipNativeMode = false;
+    state.pipStreamMode = null;
+  }
+  function ensurePipProxyVideoEl() {
+    if (state.pipProxyVideoEl) return state.pipProxyVideoEl;
+    const proxy = document.createElement("video");
+    proxy.muted = true;
+    proxy.playsInline = true;
+    proxy.setAttribute("playsinline", "");
+    proxy.autoplay = true;
+    proxy.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;";
+    proxy.addEventListener("enterpictureinpicture", () => {
+      state.pipActive = true;
+      updatePipButtonUi();
+    });
+    proxy.addEventListener("leavepictureinpicture", () => {
+      state.pipActive = false;
+      cleanupPipProxyMedia();
+      updatePipButtonUi();
+    });
+    document.body.appendChild(proxy);
+    state.pipProxyVideoEl = proxy;
+    return proxy;
+  }
+  function ensureOwnNativePipCanvas() {
+    if (!state.pipNativeCanvasEl) {
+      const c = document.createElement("canvas");
+      c.id = "pipNativeCanvas";
+      c.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;";
+      document.body.appendChild(c);
+      state.pipNativeCanvasEl = c;
+    }
+    const peerShare = state.peers.get(state.myPeerId)?.screen_share;
+    const w2 = peerShare?.width || 1280;
+    const h2 = peerShare?.height || 720;
+    if (state.pipNativeCanvasEl.width !== w2 || state.pipNativeCanvasEl.height !== h2) {
+      state.pipNativeCanvasEl.width = w2;
+      state.pipNativeCanvasEl.height = h2;
+      const ctx = state.pipNativeCanvasEl.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#0b0c0e";
+        ctx.fillRect(0, 0, w2, h2);
+      }
+    }
+    return state.pipNativeCanvasEl;
+  }
+  async function ensureVideoMetadataLoaded(videoEl) {
+    if (!videoEl || videoEl.readyState >= 1) return;
+    await new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        videoEl.removeEventListener("loadedmetadata", finish);
+        resolve();
+      };
+      videoEl.addEventListener("loadedmetadata", finish, { once: true });
+      setTimeout(finish, 300);
+    });
+  }
+  async function openDocumentPipFromStream(stream, ownsTracks, streamMode, nativeMode, width = 480, height = 270) {
+    if (!window.documentPictureInPicture?.requestWindow) return false;
+    const pipWin = await window.documentPictureInPicture.requestWindow({
+      width: Math.min(640, Math.max(320, width)),
+      height: Math.min(360, Math.max(180, height))
+    });
+    pipWin.document.body.style.cssText = "margin:0;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;";
+    const v = document.createElement("video");
+    v.muted = true;
+    v.autoplay = true;
+    v.playsInline = true;
+    v.style.cssText = "width:100%;height:100%;object-fit:contain;";
+    v.srcObject = stream;
+    v.play().catch(() => {
+    });
+    pipWin.document.body.appendChild(v);
+    state.pipOwnsProxyTracks = ownsTracks;
+    state.pipNativeMode = nativeMode;
+    state.pipStreamMode = streamMode;
+    state.pipActive = true;
+    updatePipButtonUi();
+    pipWin.addEventListener("pagehide", () => {
+      state.pipActive = false;
+      if (ownsTracks && v.srcObject) {
+        try {
+          v.srcObject.getTracks().forEach((t) => t.stop());
+        } catch (_2) {
+        }
+      }
+      try {
+        v.srcObject = null;
+      } catch (_2) {
+      }
+      cleanupPipProxyMedia();
+      updatePipButtonUi();
+    });
+    return true;
+  }
+  async function openPipWithStream(stream, ownsTracks, streamMode, nativeMode, width = 480, height = 270) {
+    const proxy = ensurePipProxyVideoEl();
+    if (state.pipOwnsProxyTracks && proxy.srcObject && proxy.srcObject !== stream) {
+      try {
+        proxy.srcObject.getTracks().forEach((t) => t.stop());
+      } catch (_2) {
+      }
+    }
+    state.pipOwnsProxyTracks = ownsTracks;
+    state.pipNativeMode = nativeMode;
+    state.pipStreamMode = streamMode;
+    proxy.srcObject = stream;
+    try {
+      await proxy.play();
+    } catch (_2) {
+    }
+    await ensureVideoMetadataLoaded(proxy);
+    if (typeof proxy.requestPictureInPicture === "function") {
+      try {
+        await proxy.requestPictureInPicture();
+        state.pipActive = true;
+        updatePipButtonUi();
+        return true;
+      } catch (err) {
+        if (await openDocumentPipFromStream(stream, ownsTracks, streamMode, nativeMode, width, height).catch(() => false)) {
+          return true;
+        }
+        cleanupPipProxyMedia();
+        updatePipButtonUi();
+        showToast("Não foi possível ativar PiP: " + (err?.message || "indisponível"), "warn");
+        return false;
+      }
+    }
+    if (await openDocumentPipFromStream(stream, ownsTracks, streamMode, nativeMode, width, height).catch(() => false)) {
+      return true;
+    }
+    cleanupPipProxyMedia();
+    updatePipButtonUi();
+    showToast("Picture-in-Picture não disponível neste navegador.", "warn");
+    return false;
+  }
+  async function closeActivePiP() {
+    if (typeof document !== "undefined" && document.pictureInPictureElement) {
       try {
         await document.exitPictureInPicture();
       } catch (_2) {
       }
-      state.pipActive = false;
-      updatePipButtonUi();
-      return;
     }
     if (typeof window !== "undefined" && window.documentPictureInPicture?.window) {
       try {
         window.documentPictureInPicture.window.close();
       } catch (_2) {
       }
-      state.pipActive = false;
-      updatePipButtonUi();
+    }
+    cleanupPipProxyMedia();
+    state.pipActive = false;
+    updatePipButtonUi();
+  }
+  async function togglePiP() {
+    const videoEl = document.getElementById("stageVideo");
+    const canvasEl = document.getElementById("stageCanvas");
+    if (typeof document !== "undefined" && document.pictureInPictureElement || typeof window !== "undefined" && window.documentPictureInPicture?.window || state.pipActive) {
+      await closeActivePiP();
       return;
     }
-    if (state.watchedStreamerId === state.myPeerId && isSelfCapturePaused()) {
-      showToast("Pré-visualização local pausada para evitar espelho infinito.", "info");
-      return;
+    const ownCaptureActive = isOwnScreenCaptureActive();
+    const targetingOwnCapture = Boolean(
+      ownCaptureActive && (!state.watchedStreamerId || state.watchedStreamerId === state.myPeerId || state.gridMode)
+    );
+    if (targetingOwnCapture) {
+      if (state.localDisplayStream) {
+        const settings = state.localDisplayStream.getVideoTracks?.()[0]?.getSettings?.() || {};
+        await openPipWithStream(
+          state.localDisplayStream,
+          false,
+          "own_media",
+          false,
+          settings.width || 640,
+          settings.height || 360
+        );
+        return;
+      }
+      if (state.myScreenShareMode === "native_host") {
+        const nativeCanvas = ensureOwnNativePipCanvas();
+        if (typeof nativeCanvas.captureStream === "function") {
+          const stream = nativeCanvas.captureStream(30);
+          await openPipWithStream(
+            stream,
+            true,
+            "own_native",
+            true,
+            nativeCanvas.width,
+            nativeCanvas.height
+          );
+          return;
+        }
+        showToast("Picture-in-Picture não disponível neste navegador.", "warn");
+        return;
+      }
     }
     if (videoEl && videoEl.style.display !== "none" && videoEl.srcObject) {
       if (typeof videoEl.requestPictureInPicture !== "function") {
@@ -12577,15 +12939,18 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
         if (!videoEl.dataset.pipBound) {
           videoEl.dataset.pipBound = "1";
           videoEl.addEventListener("enterpictureinpicture", () => {
+            state.pipStreamMode = "remote";
             state.pipActive = true;
             updatePipButtonUi();
           });
           videoEl.addEventListener("leavepictureinpicture", () => {
+            state.pipStreamMode = null;
             state.pipActive = false;
             updatePipButtonUi();
           });
         }
         await videoEl.requestPictureInPicture();
+        state.pipStreamMode = "remote";
         state.pipActive = true;
         updatePipButtonUi();
       } catch (err) {
@@ -12595,73 +12960,9 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     }
     if (canvasEl && canvasEl.style.display !== "none" && canvasEl.width > 0 && canvasEl.height > 0) {
       if (typeof canvasEl.captureStream === "function") {
-        try {
-          if (!state.pipProxyVideoEl) {
-            const proxy = document.createElement("video");
-            proxy.muted = true;
-            proxy.playsInline = true;
-            proxy.setAttribute("playsinline", "");
-            proxy.autoplay = true;
-            proxy.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;";
-            proxy.addEventListener("leavepictureinpicture", () => {
-              state.pipActive = false;
-              updatePipButtonUi();
-              try {
-                if (proxy.srcObject) proxy.srcObject.getTracks().forEach((t) => t.stop());
-                proxy.srcObject = null;
-              } catch (_2) {
-              }
-            });
-            document.body.appendChild(proxy);
-            state.pipProxyVideoEl = proxy;
-          }
-          const stream = canvasEl.captureStream(30);
-          state.pipProxyVideoEl.srcObject = stream;
-          await state.pipProxyVideoEl.play();
-          if (typeof state.pipProxyVideoEl.requestPictureInPicture === "function") {
-            await state.pipProxyVideoEl.requestPictureInPicture();
-            state.pipActive = true;
-            updatePipButtonUi();
-            return;
-          }
-        } catch (err) {
-          if (!window.documentPictureInPicture?.requestWindow) {
-            showToast("PiP em transmissão Relay não suportado aqui: " + (err?.message || ""), "warn");
-            return;
-          }
-        }
-      }
-      if (window.documentPictureInPicture?.requestWindow) {
-        try {
-          const pipWin = await window.documentPictureInPicture.requestWindow({
-            width: Math.min(640, Math.max(320, canvasEl.width || 480)),
-            height: Math.min(360, Math.max(180, canvasEl.height || 270))
-          });
-          pipWin.document.body.style.cssText = "margin:0;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;";
-          const proxy = document.createElement("video");
-          proxy.muted = true;
-          proxy.autoplay = true;
-          proxy.playsInline = true;
-          proxy.style.cssText = "width:100%;height:100%;object-fit:contain;";
-          if (typeof canvasEl.captureStream === "function") {
-            proxy.srcObject = canvasEl.captureStream(30);
-            proxy.play().catch(() => {
-            });
-          }
-          pipWin.document.body.appendChild(proxy);
-          state.pipActive = true;
-          updatePipButtonUi();
-          pipWin.addEventListener("pagehide", () => {
-            state.pipActive = false;
-            updatePipButtonUi();
-            try {
-              if (proxy.srcObject) proxy.srcObject.getTracks().forEach((t) => t.stop());
-            } catch (_2) {
-            }
-          });
-          return;
-        } catch (_2) {
-        }
+        const stream = canvasEl.captureStream(30);
+        await openPipWithStream(stream, true, "remote", false, canvasEl.width, canvasEl.height);
+        return;
       }
       showToast("Picture-in-Picture não disponível neste navegador.", "warn");
       return;
@@ -12803,6 +13104,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     updateStageView: () => {
     },
     renegotiateAllPeers: async () => {
+    },
+    closeActivePiP: async () => {
     }
   };
   function registerScreenShareHooks(h2) {
@@ -13165,6 +13468,9 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
     state.selfPreviewEnabled = false;
     state.localCaptureSurface = "";
     updateGoLiveButtonState(false);
+    if (state.pipActive && (state.pipStreamMode === "own_media" || state.pipStreamMode === "own_native")) {
+      await hooks8.closeActivePiP();
+    }
     sendWs({ type: "stop_screen_share" });
     await hooks8.renegotiateAllPeers();
     hooks8.updateStageView();
@@ -13627,7 +13933,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
   registerScreenShareHooks({
     toggleMobileSidebar,
     updateStageView,
-    renegotiateAllPeers
+    renegotiateAllPeers,
+    closeActivePiP
   });
   function init() {
     applyAppearancePreferences();
@@ -13696,6 +14003,8 @@ registerProcessor("drocsid-voice-capture", DrocsidVoiceCaptureProcessor);
   });
   Object.assign(window, {
     toggleMobileSidebar,
+    toggleSidebarPanel,
+    toggleRoomExpand,
     setTheme,
     toggleTheme,
     setDensity,
@@ -13788,6 +14097,7 @@ lucide/dist/esm/shared/src/utils/toCamelCase.mjs:
 lucide/dist/esm/shared/src/utils/toPascalCase.mjs:
 lucide/dist/esm/replaceElement.mjs:
 lucide/dist/esm/icons/chevron-down.mjs:
+lucide/dist/esm/icons/chevron-right.mjs:
 lucide/dist/esm/icons/circle-question-mark.mjs:
 lucide/dist/esm/icons/clapperboard.mjs:
 lucide/dist/esm/icons/copy.mjs:

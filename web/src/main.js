@@ -47,6 +47,7 @@ import {
   setDensity,
   toggleDensity,
   toggleShowTechDetails,
+  toggleRoomExpand,
   renderRooms,
   promptNewRoom,
   updateProfile,
@@ -100,6 +101,7 @@ import {
 import {
   registerStageHooks,
   toggleMobileSidebar,
+  toggleSidebarPanel,
   setLayoutViewMode,
   unlockBrowserAudio,
   initStageResizer,
@@ -115,6 +117,7 @@ import {
   renderWebcamStrip,
   toggleStageFullscreen,
   togglePiP,
+  closeActivePiP,
   updateTelemetryHud,
   cleanupPeerVideoCodecs,
 } from "./stage.js";
@@ -155,6 +158,7 @@ registerScreenShareHooks({
   toggleMobileSidebar,
   updateStageView,
   renegotiateAllPeers,
+  closeActivePiP,
 });
 
 function init() {
@@ -221,6 +225,8 @@ document.addEventListener("visibilitychange", () => {
 // Exposição global dos handlers usados nos atributos onclick/oninput/onchange/onsubmit
 Object.assign(window, {
   toggleMobileSidebar,
+  toggleSidebarPanel,
+  toggleRoomExpand,
   setTheme,
   toggleTheme,
   setDensity,

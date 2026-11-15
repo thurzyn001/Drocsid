@@ -29,6 +29,7 @@ import {
   Eye,
   SlidersHorizontal,
   ChevronDown,
+  ChevronRight,
   HelpCircle,
   Sparkles,
   Power,
@@ -64,6 +65,7 @@ const LUCIDE_ICONS = {
   Eye,
   SlidersHorizontal,
   ChevronDown,
+  ChevronRight,
   HelpCircle,
   Sparkles,
   Power,
@@ -387,7 +389,7 @@ export function toggleOptionsMenu(force) {
 }
 
 export function selectSettingsTab(tab = "appearance") {
-  const validTabs = ["appearance", "network", "guides"];
+  const validTabs = ["appearance", "network"];
   const chosen = validTabs.includes(tab) ? tab : "appearance";
   document.querySelectorAll("[data-settings-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.settingsTab === chosen);

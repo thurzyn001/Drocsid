@@ -300,7 +300,7 @@ namespace DrocsidInstaller
 
                 MessageBox.Show(
                     "O Drocsid foi instalado com sucesso!\n\n" +
-                    "• Use o botão '📡 Gerar Convite' dentro do app para criar um link/código e jogar com amigos de outras redes sem precisar de VPN.\n" +
+                    "• Use o botão 'Convidar' dentro do app para criar um link/código e jogar com amigos de outras redes sem precisar de VPN.\n" +
                     "• Envie este mesmo instalador (Drocsid-Setup.exe) para seus amigos instalarem!",
                     "Drocsid Instalado",
                     MessageBoxButtons.OK,
@@ -343,7 +343,7 @@ namespace DrocsidInstaller
                 {
                     if (key != null)
                     {
-                        key.SetValue("DisplayName", "Drocsid — Chat, Voz & Go Live");
+                        key.SetValue("DisplayName", "Drocsid");
                         key.SetValue("DisplayVersion", "0.4.0");
                         key.SetValue("Publisher", "Drocsid Open Project");
                         key.SetValue("DisplayIcon", exePath);

@@ -5,7 +5,7 @@ O **Drocsid** é uma plataforma leve e auto-hospedável em **Rust** (`axum` + `t
 Ele traz:
 - **Transmissão de Tela** em **720p, 1080p ou 1440p a até 60 FPS com áudio do computador**, sem paywalls.
 - **Conexão Direta pela Internet (Fora da Mesma Rede e Sem VPN)**: com 1 clique em **📡 Convidar**, o Drocsid abre um link público criptografado, gera um código exclusivo (`DROCSID-xxxx-xxxx`) e conecta seus amigos de qualquer cidade ou operadora.
-- **Interface Limpa e Organizada ("Soft")**: controles essenciais à vista, preferências agrupadas em **Opções e Configurações** (com temas **Escuro**, **AMOLED** e **Claro**) e cartões **`? Como funciona`** sob demanda para explicar cada motor apenas se você quiser.
+- **Interface Limpa e Organizada ("Soft")**: controles essenciais à vista, barra lateral retrátil (`×` / `☰ Salas`), prévia de quem está em cada sala (seta expansível), preferências agrupadas em **Opções e Configurações** (com temas **Escuro**, **AMOLED** e **Claro**) e botões **`?`** sob demanda caso queira saber mais.
 - **Instalador Nativo para Windows (`dist\Drocsid-Setup.exe`)**: assistente gráfico de instalação que cria atalhos na Área de Trabalho e no Menu Iniciar, pronto para você enviar aos seus amigos.
 
 ---
@@ -39,7 +39,7 @@ Seus amigos têm **duas opções**:
 
 ## 2. Os 3 Motores de Transmissão de Tela e Recursos (v0.4.0)
 
-Ao clicar em **🖥️ Transmitir Tela**, você pode escolher entre (com cartões opcionais **`? Como funciona`** caso queira ver os detalhes):
+Ao clicar em **🖥️ Transmitir Tela**, você pode escolher entre (com botões **`?`** opcionais caso queira ver os detalhes):
 
 1. **⚡ Direto (P2P — Até 60 FPS + Áudio do Computador)**
    - Transmite tela inteira, janela de jogo ou aba em **720p/1080p/1440p a até 60 FPS** com áudio do sistema.
@@ -50,9 +50,9 @@ Ao clicar em **🖥️ Transmitir Tela**, você pode escolher entre (com cartõe
    - Captura **monitores inteiros** via **DXGI Desktop Duplication** a até **60 FPS reais** (com detecção de quadros estáticos e fallback automático para **Win32 GDI**) ou **janelas específicas** (`PrintWindow`/`BitBlt` em [`src/capture.rs`](src/capture.rs)) e, quando habilitado, transmite também o **áudio do sistema via WASAPI Loopback** reamostrado para **24 kHz** ([`src/audio_capture.rs`](src/audio_capture.rs)) com controle de volume independente no palco.
 
 ### Recursos Extras na v0.4.0
-- **🎛️ Interface Limpa, Temas & Configurações:** título simplificado (`Drocsid`), menu rápido de **Opções e Ajustes**, modal unificado de **Configurações** (temas **Escuro / AMOLED / Claro**, espaçamento **Confortável / Compacto**, detalhes técnicos opcionais na barra superior e guia explicativo sob demanda).
+- **🎛️ Interface Limpa, Temas & Configurações:** título simplificado (`Drocsid`), barra lateral retrátil (`×` para recolher e `☰ Salas` para reabrir), lista de salas com seta expansível para ver quem está conectado em cada sala, menu rápido de **Opções e Ajustes**, modal unificado de **Configurações** (temas **Escuro / AMOLED / Claro**, espaçamento **Confortável / Compacto** e detalhes técnicos opcionais na barra superior) e ícone/identificação nativa (`Drocsid`) no Windows.
 - **🎙️ Voz Avançada:** redução inteligente de ruído por IA (**RNNoise WASM**), captura em `AudioWorklet`, Relay **Opus V2 (`DAP\x02`/`DAF\x02`)** com fallback automático para **μ-law**, medidor **VU Meter**, **Teste de Mic** e **Aperto para Falar (PTT)** configurável (incluindo atalho global no Windows).
-- **⊞ Palco Completo:** **Grade Multi-Stream (até 4 telas)** sem flicker, **Modo Teatro**, **Janela Flutuante (PiP)** em todos os motores, **Ponteiro Laser**, **📷 Câmera**, proteção anti-espelho infinito/tela verde ao compartilhar a própria tela (prévia pausada por padrão e protegida na **Tela Cheia**) e divisória palco/chat arrastável.
+- **⊞ Palco Completo:** **Grade Multi-Stream (até 4 telas)** sem flicker, **Modo Teatro**, **PiP** em todos os motores (independente de a prévia local estar exibida ou pausada), **Ponteiro Laser**, **📷 Câmera**, proteção anti-espelho infinito/tela verde ao compartilhar a própria tela (prévia pausada por padrão e protegida na **Tela Cheia**) e divisória palco/chat arrastável.
 - **💬 Chat Rico & Upload Seguro:** Markdown completo (`marked` + `DOMPurify`), respostas, reações por emoji, edição/exclusão, **anexar/arrastar/colar imagens e GIFs animados** (`POST /api/upload` / `GET /api/media/:id`) com *lightbox* e **✨ Efeitos sonoros** recolhidos sob demanda.
 - **🌐 Convite Prático:** cartão de **Convites** recolhível com **QR Code offline** para celular, botão encerrar link público, alerta de versão diferente no `Welcome`, monitor de saúde SSH e menu completo na bandeja do Windows.
 - **🛡️ Moderação & Controle do Anfitrião:** rotação de chave (**🔑**), **Server Mute** (**🔇/🎙️**), **Expulsar (`🚫`)** ou **Banir IP/Sessão (`⛔`)** + **Desbanir Todos**, **Trancar Sala (`🔒/🔓`)** com banner de aprovação, **Excluir Salas (`🗑️`)** e **Limpar Chat (`🧹`)**.

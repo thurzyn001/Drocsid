@@ -110,6 +110,24 @@ pub struct TurnServerConfig {
     pub credential: String,
 }
 
+/// Resumo leve de um participante dentro de uma sala (exibido ao expandir a sala).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoomPeerSummary {
+    pub username: String,
+    #[serde(default)]
+    pub is_host: bool,
+    #[serde(default)]
+    pub in_voice: bool,
+    #[serde(default)]
+    pub self_mute: bool,
+    #[serde(default)]
+    pub self_deaf: bool,
+    #[serde(default)]
+    pub server_muted: bool,
+    #[serde(default)]
+    pub is_live: bool,
+}
+
 /// Resumo em tempo real de uma sala para prévia na barra lateral.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoomSummary {
@@ -119,6 +137,8 @@ pub struct RoomSummary {
     pub live_count: usize,
     #[serde(default)]
     pub locked: bool,
+    #[serde(default)]
+    pub peers: Vec<RoomPeerSummary>,
 }
 
 /// Informações de um monitor capturável pelo motor nativo em Rust.
